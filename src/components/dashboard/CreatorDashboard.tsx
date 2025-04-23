@@ -89,9 +89,9 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const [processingMatchId, setProcessingMatchId] = useState<string | null>(null);
 
   // EmailJS configuration and initialization
-  const EMAILJS_SERVICE_ID = 'service_7j5kmys';
-  const EMAILJS_TEMPLATE_ID = 'template_0c0df5k';
-  const EMAILJS_PUBLIC_KEY = 'q6s0E4HibHkI1e5vC';
+  const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+  const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
   useEffect(() => {
     // Initialize EmailJS with the public key
@@ -524,7 +524,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   return (
     <div>
-      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+      {/* <Toaster position="top-right" toastOptions={{ duration: 3000 }} /> */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Event Dashboard</h1>
         <button
