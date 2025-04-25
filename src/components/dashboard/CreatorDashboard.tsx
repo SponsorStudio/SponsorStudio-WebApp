@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import EventAnalytics from './EventAnalytics';
+import Modal from '../../components/Modal'; // Import the new Modal component
 import type { Database } from '../../lib/database.types';
 import emailjs from '@emailjs/browser';
 
@@ -63,7 +64,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState<Partial<Opportunity>>({
+  const [formData, setFormData] = useState<Partial<Opportunity> & { media_files?: File[]; sponsorship_brochure_file?: File }>({
     title: '',
     description: '',
     location: '',
@@ -80,6 +81,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
     sponsorship_brochure_url: '',
     verification_status: 'pending'
   });
+  const [mediaPreviews, setMediaPreviews] = useState<string[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
   const [expandedMatches, setExpandedMatches] = useState<Record<string, boolean>>({});
@@ -87,71 +89,60 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const [selectedAnalyticsId, setSelectedAnalyticsId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'opportunities' | 'matches'>('opportunities');
   const [processingMatches, setProcessingMatches] = useState<Record<string, { accept: boolean; decline: boolean }>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
-  // EmailJS configuration and initialization
   const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
   const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
   useEffect(() => {
-    // Initialize EmailJS with the public key
     emailjs.init(EMAILJS_PUBLIC_KEY);
   }, [EMAILJS_PUBLIC_KEY]);
 
   const fetchCategories = async () => {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*');
-    
+    const { data, error } = await supabase.from('categories').select('*');
     if (error) {
       console.error('Error fetching categories:', error);
       toast.error('Failed to load categories');
       return;
     }
-
     setCategories(data || []);
   };
 
   const fetchOpportunities = async () => {
     if (!user) return;
-
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
       .eq('creator_id', user.id);
-    
     if (error) {
       console.error('Error fetching opportunities:', error);
       toast.error('Failed to load opportunities');
       return;
     }
-
     setOpportunities(data || []);
     setLoading(false);
   };
 
   const fetchMatches = async () => {
     if (!user) return;
-
     try {
       const { data: creatorOpps, error: oppsError } = await supabase
         .from('opportunities')
         .select('id')
         .eq('creator_id', user.id);
-      
       if (oppsError) {
         console.error('Error fetching creator opportunities:', oppsError);
         throw new Error(`Failed to fetch opportunities: ${oppsError.message}`);
       }
-      
       if (!creatorOpps || creatorOpps.length === 0) {
         setMatches([]);
         return;
       }
-
       const oppIds = creatorOpps.map(opp => opp.id);
       console.log('Fetching matches for opportunity IDs:', oppIds);
-      
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select(`
@@ -160,12 +151,10 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           opportunities:opportunity_id (*)
         `)
         .in('opportunity_id', oppIds);
-      
       if (matchesError) {
         console.error('Error fetching matches:', matchesError);
         throw new Error(`Failed to fetch matches: ${matchesError.message}`);
       }
-      
       console.log('Fetched matches:', matchesData);
       setMatches(matchesData as Match[] || []);
     } catch (error: any) {
@@ -179,7 +168,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       fetchCategories();
       fetchOpportunities();
       fetchMatches();
-
       const channel = supabase
         .channel('matches-changes')
         .on(
@@ -191,7 +179,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           }
         )
         .subscribe();
-
       return () => {
         supabase.removeChannel(channel);
       };
@@ -209,14 +196,11 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         },
         body: JSON.stringify({ userId: brandId })
       });
-
       const data = await response.json();
       console.log('Edge function response:', data);
-
       if (data.error || !data.email) {
         throw new Error(data.error || 'Failed to fetch brand email');
       }
-
       return data.email;
     } catch (error) {
       console.error('Error fetching brand email:', error);
@@ -231,13 +215,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         opportunity_title: opportunityTitle,
         message: 'Your match has been approved! Please check your dashboard for more details.'
       };
-
-      await emailjs.send(
-        EMAILJS_SERVICE_ID,
-        EMAILJS_TEMPLATE_ID,
-        templateParams
-      );
-
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams);
       console.log('Email sent successfully to', brandEmail);
     } catch (error) {
       console.error('Error sending email:', error);
@@ -246,25 +224,18 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   };
 
   const updateMatchStatus = async (matchId: string, status: 'accepted' | 'rejected') => {
-    // Determine which action is being performed
     const action = status === 'accepted' ? 'accept' : 'decline';
-    
-    // Prevent action if this specific action for this match is already being processed
     if (processingMatches[matchId]?.[action]) return;
-
-    // Set loading state for this specific action
     setProcessingMatches(prev => ({
       ...prev,
       [matchId]: { ...prev[matchId], [action]: true }
     }));
-
     try {
       const { data: currentMatch, error: checkError } = await supabase
         .from('matches')
         .select('id, status, brand_id, opportunity_id')
         .eq('id', matchId)
         .single();
-
       if (checkError) {
         console.error('Match check error:', checkError);
         throw new Error(`Failed to verify match: ${checkError.message}`);
@@ -277,17 +248,14 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         console.error('Match is not pending:', currentMatch.status);
         throw new Error(`Match is already ${currentMatch.status}`);
       }
-
       const { error: updateError } = await supabase
         .from('matches')
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', matchId);
-
       if (updateError) {
         console.error('Update error:', updateError);
         throw new Error(`Failed to update match: ${updateError.message}`);
       }
-
       if (status === 'accepted') {
         const brandEmail = await fetchBrandEmail(currentMatch.brand_id);
         const { data: opportunity, error: oppError } = await supabase
@@ -295,17 +263,13 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           .select('title')
           .eq('id', currentMatch.opportunity_id)
           .single();
-
         if (oppError || !opportunity) {
           console.error('Error fetching opportunity:', oppError);
           throw new Error('Failed to fetch opportunity title');
         }
-
         await sendApprovalEmail(brandEmail, opportunity.title);
       }
-
       await fetchMatches();
-
       toast.success(
         status === 'accepted'
           ? 'Match accepted successfully! The brand has been notified.'
@@ -318,7 +282,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         duration: 4000,
       });
     } finally {
-      // Clear loading state for this specific action
       setProcessingMatches(prev => ({
         ...prev,
         [matchId]: { ...prev[matchId], [action]: false }
@@ -328,7 +291,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
     if (name === 'price_min' || name === 'price_max') {
       setFormData({
         ...formData,
@@ -350,22 +312,107 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
     }
   };
 
-  const handleMediaUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    const urls = value.split(',').map(url => url.trim());
-    
-    setFormData({
-      ...formData,
-      media_urls: urls
-    });
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'media_files' | 'sponsorship_brochure_file') => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
+      files.forEach(file => {
+        console.log(`Selected ${field === 'media_files' ? 'media' : 'sponsorship brochure'} file:`, file.name, 'size:', file.size, 'type:', file.type);
+      });
+      if (field === 'media_files') {
+        setFormData(prev => ({
+          ...prev,
+          media_files: files
+        }));
+        const previews = files.map(file => URL.createObjectURL(file));
+        setMediaPreviews(previews);
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          sponsorship_brochure_file: files[0]
+        }));
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!user) return;
-    
+    setIsSubmitting(true);
     try {
+      let mediaUrls: string[] = formData.media_urls || [];
+      let sponsorshipBrochureUrl: string | undefined;
+
+      if (formData.media_files && formData.media_files.length > 0) {
+        const uploadPromises = formData.media_files.map(async (file) => {
+          const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const filePath = `opportunities/${user.id}/${fileName}`;
+          console.log('Uploading media file:', file.name, 'to path:', filePath);
+          const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as ArrayBuffer);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsArrayBuffer(file);
+          });
+          const { data, error } = await supabase.storage
+            .from('media')
+            .upload(filePath, fileBuffer, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: file.type
+            });
+          if (error) {
+            console.error('Upload error details:', error);
+            throw new Error(`Failed to upload media file ${file.name}: ${error.message}`);
+          }
+          console.log('Media upload successful, data:', data);
+          const { data: publicUrlData } = supabase.storage
+            .from('media')
+            .getPublicUrl(filePath);
+          if (!publicUrlData.publicUrl) {
+            console.error('No public URL generated for path:', filePath);
+            throw new Error('Failed to generate public URL');
+          }
+          console.log('Generated public URL for media:', publicUrlData.publicUrl);
+          return publicUrlData.publicUrl;
+        });
+        mediaUrls = await Promise.all(uploadPromises);
+        console.log('All media URLs:', mediaUrls);
+      }
+
+      if (formData.sponsorship_brochure_file) {
+        const file = formData.sponsorship_brochure_file;
+        const fileName = `${Date.now()}_brochure_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+        const filePath = `opportunities/${user.id}/${fileName}`;
+        console.log('Uploading sponsorship brochure:', file.name, 'to path:', filePath);
+        const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
+          reader.onerror = () => reject(new Error('Failed to read file'));
+          reader.readAsArrayBuffer(file);
+        });
+        const { data, error } = await supabase.storage
+          .from('media')
+          .upload(filePath, fileBuffer, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type
+          });
+        if (error) {
+          console.error('Upload error details:', error);
+          throw new Error(`Failed to upload sponsorship brochure ${file.name}: ${error.message}`);
+        }
+        console.log('Sponsorship brochure upload successful, data:', data);
+        const { data: publicUrlData } = supabase.storage
+          .from('media')
+          .getPublicUrl(filePath);
+        if (!publicUrlData.publicUrl) {
+          console.error('No public URL generated for path:', filePath);
+          throw new Error('Failed to generate public URL');
+        }
+        console.log('Generated public URL for brochure:', publicUrlData.publicUrl);
+        sponsorshipBrochureUrl = publicUrlData.publicUrl;
+      }
+
       const opportunityData = {
         ...formData,
         creator_id: user.id,
@@ -374,22 +421,24 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         price_range: {
           min: formData.price_range?.min ?? 0,
           max: formData.price_range?.max ?? 0
-        }
+        },
+        media_urls: mediaUrls,
+        sponsorship_brochure_url: sponsorshipBrochureUrl
       };
-      
+      delete opportunityData.media_files;
+      delete opportunityData.sponsorship_brochure_file;
+
       if (isEditing && selectedOpportunityId) {
         const { error } = await supabase
           .from('opportunities')
           .update(opportunityData)
           .eq('id', selectedOpportunityId);
-        
         if (error) throw error;
         toast.success('Event updated successfully');
       } else {
         const { error } = await supabase
           .from('opportunities')
           .insert([opportunityData]);
-        
         if (error) throw error;
         toast.success('Event created successfully');
       }
@@ -409,15 +458,20 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         status: 'active',
         calendly_link: '',
         sponsorship_brochure_url: '',
-        verification_status: 'pending'
+        verification_status: 'pending',
+        media_files: undefined,
+        sponsorship_brochure_file: undefined
       });
+      setMediaPreviews([]);
       setShowForm(false);
       setIsEditing(false);
       setSelectedOpportunityId(null);
       fetchOpportunities();
     } catch (error: any) {
       console.error('Error saving opportunity:', error.message);
-      toast.error('Failed to save event');
+      toast.error(`Failed to save event: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -440,40 +494,57 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       status: opportunity.status,
       calendly_link: opportunity.calendly_link || '',
       sponsorship_brochure_url: opportunity.sponsorship_brochure_url || '',
-      verification_status: opportunity.verification_status
+      verification_status: opportunity.verification_status,
+      media_files: undefined,
+      sponsorship_brochure_file: undefined
     });
+    setMediaPreviews([]);
     setIsEditing(true);
     setSelectedOpportunityId(opportunity.id);
     setShowForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this opportunity?')) return;
-    
+    if (!showDeleteModal) {
+      setDeleteTargetId(id);
+      setShowDeleteModal(true);
+      return;
+    }
     try {
       const { error } = await supabase
         .from('opportunities')
         .delete()
         .eq('id', id);
-      
       if (error) throw error;
       toast.success('Event deleted successfully');
       fetchOpportunities();
     } catch (error: any) {
       console.error('Error deleting opportunity:', error.message);
       toast.error('Failed to delete event');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTargetId(null);
     }
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deleteTargetId) {
+      handleDelete(deleteTargetId);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setDeleteTargetId(null);
   };
 
   const toggleOpportunityStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'paused' : 'active';
-    
     try {
       const { error } = await supabase
         .from('opportunities')
         .update({ status: newStatus })
         .eq('id', id);
-      
       if (error) throw error;
       toast.success(`Event ${newStatus === 'active' ? 'activated' : 'paused'} successfully`);
       fetchOpportunities();
@@ -536,7 +607,15 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   return (
     <div>
-      {/* <Toaster position="top-right" toastOptions={{ duration: 3000 }} /> */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Confirm Deletion"
+        message="Are you sure you want to delete this event? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Event Dashboard</h1>
         <button
@@ -559,8 +638,11 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               status: 'active',
               calendly_link: '',
               sponsorship_brochure_url: '',
-              verification_status: 'pending'
+              verification_status: 'pending',
+              media_files: undefined,
+              sponsorship_brochure_file: undefined
             });
+            setMediaPreviews([]);
           }}
           className="flex items-center space-x-1 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] transition-colors"
         >
@@ -816,19 +898,61 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Media URLs (comma separated)
+                Upload Media Files (Images/Videos)
               </label>
               <input
-                type="text"
-                name="media_urls"
-                value={formData.media_urls?.join(', ') || ''}
-                onChange={handleMediaUrlChange}
-                placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                onChange={(e) => handleFileChange(e, 'media_files')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Add URLs to images or videos that showcase your event
+                Upload images or videos that showcase your event (max 5 files, up to 10MB each)
               </p>
+              {formData.media_files && formData.media_files.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">Selected files:</p>
+                  <ul className="list-disc list-inside text-sm text-gray-700">
+                    {formData.media_files.map((file, index) => (
+                      <li key={index}>{file.name}</li>
+                    ))}
+                  </ul>
+                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {mediaPreviews.map((preview, index) => (
+                      <div key={index} className="relative">
+                        {formData.media_files![index].type.startsWith('image/') ? (
+                          <img
+                            src={preview}
+                            alt={`Media preview ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                            onError={(e) => console.error('Error loading preview:', preview)}
+                          />
+                        ) : formData.media_files![index].type.startsWith('video/') ? (
+                          <video
+                            src={preview}
+                            controls
+                            className="w-full h-32 object-cover rounded-lg"
+                            onError={(e) => console.error('Error loading video preview:', preview)}
+                          />
+                        ) : (
+                          <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <span className="text-gray-500">Unsupported file type</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {isSubmitting && (
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-[#2B4B9B] h-2.5 rounded-full animate-indeterminate"></div>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">Uploading...</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div style={{display:"none"}}>
@@ -850,34 +974,54 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Sponsorship Brochure URL
+                Upload Sponsorship Brochure (PDF)
               </label>
               <input
-                type="url"
-                name="sponsorship_brochure_url"
-                value={formData.sponsorship_brochure_url}
-                onChange={handleInputChange}
-                placeholder="https://drive.google.com/file/your-brochure"
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => handleFileChange(e, 'sponsorship_brochure_file')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
               />
               <p className="text-xs text-gray-500 mt-1">
-                Add a link to your sponsorship brochure with detailed information and pricing
+                Upload a PDF of your sponsorship brochure (up to 10MB)
               </p>
+              {formData.sponsorship_brochure_file && (
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600">Selected brochure: {formData.sponsorship_brochure_file.name}</p>
+                  {isSubmitting && (
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                        <div className="bg-[#2B4B9B] h-2.5 rounded-full animate-indeterminate"></div>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">Uploading...</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end space-x-2">
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setMediaPreviews([]);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+                className={`px-4 py-2 ${isSubmitting ? 'bg-gray-400' : 'bg-[#2B4B9B]'} text-white rounded-lg hover:${isSubmitting ? '' : 'bg-[#1a2f61]'}`}
+                disabled={isSubmitting}
               >
-                {isEditing ? 'Update Event' : 'Create Event'}
+                {isSubmitting ? (
+                  <span className="flex items-center">
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    {isEditing ? 'Updating...' : 'Creating...'}
+                  </span>
+                ) : isEditing ? 'Update Event' : 'Create Event'}
               </button>
             </div>
           </form>
@@ -907,7 +1051,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               {opportunities.map((opportunity) => {
                 const opportunityMatches = getMatchesForOpportunity(opportunity.id);
                 const isExpanded = expandedMatches[opportunity.id] || false;
-                
                 return (
                   <div key={opportunity.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
                     <div className="p-6">
@@ -1039,11 +1182,28 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                         {opportunity.sponsorship_brochure_url && (
                           <div className="flex items-center text-sm text-[#2B4B9B]">
                             <LinkIcon className="w-4 h-4 mr-1" />
-                            <span>Sponsorship Brochure Available</span>
+                            <a href={opportunity.sponsorship_brochure_url} target="_blank" rel="noopener noreferrer" className="underline">
+                              Sponsorship Brochure Available
+                            </a>
                           </div>
                         )}
                       </div>
-                      
+                      {opportunity.media_urls && opportunity.media_urls.length > 0 && (
+                        <div className="mt-4">
+                          <h4 className="text-sm font-medium text-gray-700">Media:</h4>
+                          <div className="flex gap-2 mt-2">
+                            {opportunity.media_urls.map((url, index) => (
+                              <img
+                                key={index}
+                                src={url}
+                                alt={`Media ${index + 1}`}
+                                className="w-24 h-24 object-cover rounded"
+                                onError={(e) => console.error('Error loading image:', url)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <p className="text-gray-600 mb-4">{opportunity.description}</p>
                       
                       <div className="flex justify-between items-center">
@@ -1347,3 +1507,28 @@ function getVerificationStatusBadge(status: string) {
       return null;
   }
 }
+
+// Add CSS for indeterminate progress animation
+const styleSheet = document.createElement("style");
+styleSheet.innerText = `
+  @keyframes indeterminate {
+    0% {
+      left: -35%;
+      right: 100%;
+    }
+    60% {
+      left: 100%;
+      right: -90%;
+    }
+    100% {
+      left: 100%;
+      right: -90%;
+    }
+  }
+  .animate-indeterminate {
+    position: relative;
+    width: 35%;
+    animation: indeterminate 2s infinite linear;
+  }
+`;
+document.head.appendChild(styleSheet);
