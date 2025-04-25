@@ -86,7 +86,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedAnalyticsId, setSelectedAnalyticsId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'opportunities' | 'matches'>('opportunities');
-  const [processingMatchId, setProcessingMatchId] = useState<string | null>(null);
+  const [processingMatches, setProcessingMatches] = useState<Record<string, { accept: boolean; decline: boolean }>>({});
 
   // EmailJS configuration and initialization
   const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
@@ -198,31 +198,31 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
     }
   }, [user]);
 
- const fetchBrandEmail = async (brandId: string): Promise<string> => {
-  try {
-    console.log('Fetching email for brandId:', brandId);
-    const response = await fetch('https://urablfvmqregyvfyaovi.supabase.co/functions/v1/get-user-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
-      },
-      body: JSON.stringify({ userId: brandId })
-    });
+  const fetchBrandEmail = async (brandId: string): Promise<string> => {
+    try {
+      console.log('Fetching email for brandId:', brandId);
+      const response = await fetch('https://urablfvmqregyvfyaovi.supabase.co/functions/v1/get-user-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await supabase.auth.getSession().then(({ data }) => data.session?.access_token)}`
+        },
+        body: JSON.stringify({ userId: brandId })
+      });
 
-    const data = await response.json();
-    console.log('Edge function response:', data);
+      const data = await response.json();
+      console.log('Edge function response:', data);
 
-    if (data.error || !data.email) {
-      throw new Error(data.error || 'Failed to fetch brand email');
+      if (data.error || !data.email) {
+        throw new Error(data.error || 'Failed to fetch brand email');
+      }
+
+      return data.email;
+    } catch (error) {
+      console.error('Error fetching brand email:', error);
+      throw error;
     }
-
-    return data.email;
-  } catch (error) {
-    console.error('Error fetching brand email:', error);
-    throw error;
-  }
-};
+  };
 
   const sendApprovalEmail = async (brandEmail: string, opportunityTitle: string) => {
     try {
@@ -246,9 +246,17 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   };
 
   const updateMatchStatus = async (matchId: string, status: 'accepted' | 'rejected') => {
-    if (processingMatchId) return;
+    // Determine which action is being performed
+    const action = status === 'accepted' ? 'accept' : 'decline';
+    
+    // Prevent action if this specific action for this match is already being processed
+    if (processingMatches[matchId]?.[action]) return;
 
-    setProcessingMatchId(matchId);
+    // Set loading state for this specific action
+    setProcessingMatches(prev => ({
+      ...prev,
+      [matchId]: { ...prev[matchId], [action]: true }
+    }));
 
     try {
       const { data: currentMatch, error: checkError } = await supabase
@@ -310,7 +318,11 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         duration: 4000,
       });
     } finally {
-      setProcessingMatchId(null);
+      // Clear loading state for this specific action
+      setProcessingMatches(prev => ({
+        ...prev,
+        [matchId]: { ...prev[matchId], [action]: false }
+      }));
     }
   };
 
@@ -819,7 +831,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               </p>
             </div>
 
-            <div>
+            <div style={{display:"none"}}>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Calendly Link
               </label>
@@ -1087,13 +1099,13 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                   <div className="flex space-x-2">
                                     <button
                                       onClick={() => updateMatchStatus(match.id, 'accepted')}
-                                      disabled={processingMatchId === match.id}
+                                      disabled={processingMatches[match.id]?.accept}
                                       className={`p-1.5 bg-green-100 text-green-600 rounded-full hover:bg-green-200 ${
-                                        processingMatchId === match.id ? 'opacity-50 cursor-not-allowed' : ''
+                                        processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
                                       }`}
                                       title="Accept Match"
                                     >
-                                      {processingMatchId === match.id ? (
+                                      {processingMatches[match.id]?.accept ? (
                                         <RefreshCw className="w-4 h-4 animate-spin" />
                                       ) : (
                                         <Check className="w-4 h-4" />
@@ -1101,13 +1113,13 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                     </button>
                                     <button
                                       onClick={() => updateMatchStatus(match.id, 'rejected')}
-                                      disabled={processingMatchId === match.id}
+                                      disabled={processingMatches[match.id]?.decline}
                                       className={`p-1.5 bg-red-100 text-red-600 rounded-full hover:bg-red-200 ${
-                                        processingMatchId === match.id ? 'opacity-50 cursor-not-allowed' : ''
+                                        processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
                                       }`}
                                       title="Reject Match"
                                     >
-                                      {processingMatchId === match.id ? (
+                                      {processingMatches[match.id]?.decline ? (
                                         <RefreshCw className="w-4 h-4 animate-spin" />
                                       ) : (
                                         <X className="w-4 h-4" />
@@ -1188,12 +1200,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                           <div className="flex space-x-2">
                             <button
                               onClick={() => updateMatchStatus(match.id, 'accepted')}
-                              disabled={processingMatchId === match.id}
+                              disabled={processingMatches[match.id]?.accept}
                               className={`px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center ${
-                                processingMatchId === match.id ? 'opacity-50 cursor-not-allowed' : ''
+                                processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                             >
-                              {processingMatchId === match.id ? (
+                              {processingMatches[match.id]?.accept ? (
                                 <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
                               ) : (
                                 <Check className="w-4 h-4 mr-1" />
@@ -1202,12 +1214,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                             </button>
                             <button
                               onClick={() => updateMatchStatus(match.id, 'rejected')}
-                              disabled={processingMatchId === match.id}
+                              disabled={processingMatches[match.id]?.decline}
                               className={`px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center ${
-                                processingMatchId === match.id ? 'opacity-50 cursor-not-allowed' : ''
+                                processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
                               }`}
                             >
-                              {processingMatchId === match.id ? (
+                              {processingMatches[match.id]?.decline ? (
                                 <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
                               ) : (
                                 <X className="w-4 h-4 mr-1" />
