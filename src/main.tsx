@@ -22,7 +22,7 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/admin" element={<AdminLogin />} />
           {/* <Route path="/admin/signup" element={<AdminSignup />} /> */}
           <Route 
-            path="/admin/dashboard" 
+            path="/admin/*" 
             element={
               <ProtectedAdminRoute>
                 <AdminDashboard />
@@ -31,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
           />
           <Route path="/story/:id" element={<SuccessStoryPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
+          {/* <Route path="/admin/*" element={<AdminDashboard />} /> */}
         </Routes>
       </Router>
       <Toaster
