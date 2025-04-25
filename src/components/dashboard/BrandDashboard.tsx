@@ -672,17 +672,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                             </p>
                           </div>
                           <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
-                            {match.opportunities?.calendly_link && (
-                              <a 
-                                href={match.opportunities.calendly_link} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center"
-                              >
-                                <Calendar className="w-4 h-4 mr-1" />
-                                Schedule Meeting
-                              </a>
-                            )}
                             {match.opportunities?.sponsorship_brochure_url && (
                               <a 
                                 href={match.opportunities.sponsorship_brochure_url} 
@@ -727,22 +716,17 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                                 Meeting scheduled for: {new Date(match.meeting_scheduled_at).toLocaleString()}
                               </p>
                             )}
-                            {match.meeting_link && (
-                              <p className="text-sm text-gray-600">
-                                Meeting link: <a href={match.meeting_link} target="_blank" rel="noopener noreferrer" className="text-[#2B4B9B] hover:underline">{match.meeting_link}</a>
-                              </p>
-                            )}
                           </div>
                           <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
-                            {match.opportunities?.calendly_link && (
+                            {match.meeting_link && (
                               <a 
-                                href={match.opportunities.calendly_link} 
+                                href={match.meeting_link} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center"
                               >
                                 <Calendar className="w-4 h-4 mr-1" />
-                                Reschedule Meeting
+                                Join Meeting
                               </a>
                             )}
                             {match.opportunities?.sponsorship_brochure_url && (
