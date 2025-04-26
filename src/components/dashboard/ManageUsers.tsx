@@ -288,26 +288,26 @@ export default function ManageUsers({ searchTerm: externalSearchTerm, setSearchT
           <table className="w-full text-left">
             <thead className="bg-blue-100">
               <tr>
-                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Name</th>
-                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Email</th>
-                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Company</th>
-                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Role</th>
+                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase border-r border-blue-200">Name</th>
+                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase border-r border-blue-200">Email</th>
+                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase border-r border-blue-200">Company</th>
+                <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase border-r border-blue-200">Role</th>
                 <th className="px-6 py-3 text-xs font-semibold text-gray-600 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredUsers.map((user) => (
                 <tr key={user.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                     {user.contact_person_name || 'Not set'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                     {user.email || 'Not set'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                     {user.company_name || 'Not set'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap border-r border-gray-200">
                     {user.user_type || 'Not set'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
