@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import { 
-  CheckCircle, 
-  XCircle, 
   AlertTriangle, 
   Calendar, 
   MapPin, 
@@ -64,6 +62,7 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
   const [rejectionReason, setRejectionReason] = useState('');
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [videoErrors, setVideoErrors] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchOpportunities();
@@ -303,6 +302,10 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
 
   const handleRefresh = () => {
     fetchOpportunities();
+  };
+
+  const handleVideoError = (mediaUrl: string) => {
+    setVideoErrors(prev => ({ ...prev, [mediaUrl]: true }));
   };
 
   const formatPrice = (priceRange: any) => {
@@ -640,6 +643,50 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
                         </div>
                       </div>
                     </div>
+                    {opportunity.media_urls && opportunity.media_urls.length > 0 && (
+                      <div className="mt-6">
+                        <h4 className="font-semibold text-gray-900 mb-4">Media</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {opportunity.media_urls.map((mediaUrl, index) => {
+                            const isImage = /\.(jpg|jpeg|png|gif)$/i.test(mediaUrl);
+                            const isVideo = /\.(mp4|webm|ogg)$/i.test(mediaUrl);
+                            const hasVideoError = videoErrors[mediaUrl];
+                            return (
+                              <div key={index} className="border rounded-lg p-2">
+                                {isImage ? (
+                                  <a href={mediaUrl} target="_blank" rel="noopener noreferrer">
+                                    <img
+                                      src={mediaUrl}
+                                      alt={`Media ${index + 1}`}
+                                      className="w-full h-32 object-cover rounded"
+                                    />
+                                  </a>
+                                ) : isVideo && !hasVideoError ? (
+                                  <video
+                                    controls
+                                    className="w-full h-32 object-cover rounded"
+                                    onError={() => handleVideoError(mediaUrl)}
+                                  >
+                                    <source src={mediaUrl} type={`video/${mediaUrl.split('.').pop()?.toLowerCase()}`} />
+                                    Your browser does not support the video tag.
+                                  </video>
+                                ) : (
+                                  <a
+                                    href={mediaUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#2B4B9B] hover:underline flex items-center"
+                                  >
+                                    {hasVideoError ? 'Video failed to load - View Media' : `Media ${index + 1}`}
+                                    <ExternalLink size={12} className="ml-1" />
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     {opportunity.verification_status?.trim().toLowerCase() === 'pending' && (
                       <div className="mt-6">
                         <h4 className="font-semibold text-gray-900 mb-4">Rejection Reason</h4>
@@ -680,3 +727,40 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
     </div>
   );
 }
+
+const formatPrice = (priceRange: any) => {
+  if (!priceRange || typeof priceRange !== 'object') return 'Price not set';
+  
+  const min = typeof priceRange.min === 'number' ? priceRange.min : 0;
+  const max = typeof priceRange.max === 'number' ? priceRange.max : 0;
+  
+  if (min === 0 && max === 0) return 'Price not set';
+  if (min === max) return `₹${min.toLocaleString()}`;
+  return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}`;
+};
+
+const formatPeakHours = (peakHours: any) => {
+  if (!peakHours || typeof peakHours !== 'object') return 'Not specified';
+  
+  const { start, end } = peakHours;
+  if (!start || !end) return 'Not specified';
+  
+  return `${start} - ${end}`;
+};
+
+const formatDemographics = (demographics: any) => {
+  if (!demographics || typeof demographics !== 'object') return 'Not specified';
+  
+  const details = [];
+  if (demographics.age_range) {
+    details.push(`Age: ${demographics.age_range.min}-${demographics.age_range.max}`);
+  }
+  if (demographics.gender) {
+    details.push(`Gender: ${demographics.gender}`);
+  }
+  if (demographics.income_level) {
+    details.push(`Income: ${demographics.income_level}`);
+  }
+  
+  return details.length > 0 ? details.join(', ') : 'Not specified';
+};
