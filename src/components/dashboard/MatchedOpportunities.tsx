@@ -78,7 +78,6 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      // console.log('Fetching matches with matchFilter:', matchFilter);
       let matchesQuery = supabase
         .from('matches')
         .select('*');
@@ -100,9 +99,6 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
       const filteredMatches = matchFilter === 'all'
         ? normalizedMatches
         : normalizedMatches.filter(match => match.status === matchFilter);
-
-      console.log('Normalized matches:', normalizedMatches);
-      console.log('Filtered matches (before relations):', filteredMatches);
 
       const opportunityIds = [...new Set(filteredMatches.map(match => match.opportunity_id))];
       const { data: opportunitiesData, error: opportunitiesError } = await supabase
@@ -162,7 +158,6 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
         };
       });
 
-      console.log('Fetched matches with relations:', matchesWithRelations);
       
       setMatches(matchesWithRelations as Match[] || []);
       
@@ -177,7 +172,6 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
         status: item.status?.trim().toLowerCase()
       })) || [];
 
-      console.log('Match stats data:', normalizedMatchStats);
       
       if (normalizedMatchStats) {
         setStats({
@@ -229,8 +223,6 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
     try {
       setProcessingAction(matchId);
 
-      // Log the raw input from the datetime-local input
-      console.log('Raw input time (local):', meetingScheduledAt);
 
       // Parse the input string (e.g., "2025-04-30T00:00") as local time
       const [datePart, timePart] = meetingScheduledAt.split('T');
@@ -241,15 +233,9 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
       // Month is 0-based in JavaScript Date, so subtract 1 from month
       const localDate = new Date(year, month - 1, day, hours, minutes);
 
-      // Log the parsed local time
-      console.log('Parsed local time:', localDate.toString());
-      console.log('Parsed local time (ISO):', localDate.toISOString());
 
       // Use the Parsed local time (ISO) as the UTC value to store
       const utcDateString = localDate.toISOString();
-
-      // Log the final value to be stored
-      console.log('UTC time to be stored:', utcDateString);
 
       const { error } = await supabase
         .from('matches')
@@ -327,7 +313,6 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
             className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={matchFilter}
             onChange={(e) => { 
-              console.log('Setting matches filter to:', e.target.value); 
               setMatchFilter(e.target.value as typeof matchFilter); 
             }}
           >
