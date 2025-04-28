@@ -18,7 +18,8 @@ import {
   Tag,
   CheckSquare,
   CalendarRange,
-  Search
+  Search,
+  Users
 } from 'lucide-react';
 import type { Database } from '../../lib/database.types';
 
@@ -77,7 +78,7 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      console.log('Fetching matches with matchFilter:', matchFilter);
+      // console.log('Fetching matches with matchFilter:', matchFilter);
       let matchesQuery = supabase
         .from('matches')
         .select('*');
@@ -227,16 +228,39 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
 
     try {
       setProcessingAction(matchId);
+
+      // Log the raw input from the datetime-local input
+      console.log('Raw input time (local):', meetingScheduledAt);
+
+      // Parse the input string (e.g., "2025-04-30T00:00") as local time
+      const [datePart, timePart] = meetingScheduledAt.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hours, minutes] = timePart.split(':').map(Number);
+
+      // Create a Date object in local timezone
+      // Month is 0-based in JavaScript Date, so subtract 1 from month
+      const localDate = new Date(year, month - 1, day, hours, minutes);
+
+      // Log the parsed local time
+      console.log('Parsed local time:', localDate.toString());
+      console.log('Parsed local time (ISO):', localDate.toISOString());
+
+      // Use the Parsed local time (ISO) as the UTC value to store
+      const utcDateString = localDate.toISOString();
+
+      // Log the final value to be stored
+      console.log('UTC time to be stored:', utcDateString);
+
       const { error } = await supabase
         .from('matches')
-        .update({ meeting_link: newMeetingLink, meeting_scheduled_at: meetingScheduledAt })
+        .update({ meeting_link: newMeetingLink, meeting_scheduled_at: utcDateString })
         .eq('id', matchId);
 
       if (error) throw error;
 
       setMatches(prevMatches =>
         prevMatches.map(match =>
-          match.id === matchId ? { ...match, meeting_link: newMeetingLink, meeting_scheduled_at: meetingScheduledAt } : match
+          match.id === matchId ? { ...match, meeting_link: newMeetingLink, meeting_scheduled_at: utcDateString } : match
         )
       );
       setNewMeetingLink('');
