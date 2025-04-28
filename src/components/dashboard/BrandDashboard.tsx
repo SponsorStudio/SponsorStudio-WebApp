@@ -63,8 +63,8 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   useEffect(() => {
     if (user) {
       fetchCategories();
-      fetchOpportunities();
       fetchUserMatches();
+      fetchOpportunities(true); // Initial fetch, reset index
     }
   }, [user]);
 
@@ -113,7 +113,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     }
   };
 
-  const fetchOpportunities = async () => {
+  const fetchOpportunities = async (resetIndex: boolean = false) => {
     let query = supabase
       .from('opportunities')
       .select('*, categories(*)')
@@ -154,11 +154,18 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     
     setOpportunities(filteredOpportunities);
     setLoading(false);
+    
+    // Reset index only on initial load or filter change
+    if (resetIndex && filteredOpportunities.length > 0) {
+      setCurrentOpportunityIndex(0);
+    } else if (filteredOpportunities.length > 0 && currentOpportunityIndex >= filteredOpportunities.length) {
+      setCurrentOpportunityIndex(0);
+    }
   };
 
   useEffect(() => {
-    fetchOpportunities();
-  }, [selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery, matches, rejections]);
+    fetchOpportunities(true); // Reset index when filters change
+  }, [selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery]);
 
   const handleLike = async (opportunityId: string) => {
     if (!user) return;
@@ -211,11 +218,20 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
         }
       }
       
-      setMatches([...matches, opportunityId]);
+      const updatedMatches = [...matches, opportunityId];
+      setMatches(updatedMatches);
       fetchUserMatches();
       
-      if (currentOpportunityIndex < opportunities.length - 1) {
-        setCurrentOpportunityIndex(currentOpportunityIndex + 1);
+      // Update opportunities and index in one step
+      const updatedOpportunities = opportunities.filter(opp => opp.id !== opportunityId);
+      setOpportunities(updatedOpportunities);
+      
+      if (updatedOpportunities.length === 0) {
+        setCurrentOpportunityIndex(0);
+      } else if (currentOpportunityIndex >= updatedOpportunities.length) {
+        setCurrentOpportunityIndex(0);
+      } else {
+        setCurrentOpportunityIndex(currentOpportunityIndex);
       }
     } catch (error) {
       console.error('Error creating match:', error);
@@ -223,10 +239,19 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   };
 
   const handleReject = (opportunityId: string) => {
-    setRejections([...rejections, opportunityId]);
+    const updatedRejections = [...rejections, opportunityId];
+    setRejections(updatedRejections);
     
-    if (currentOpportunityIndex < opportunities.length - 1) {
-      setCurrentOpportunityIndex(currentOpportunityIndex + 1);
+    // Update opportunities and index in one step
+    const updatedOpportunities = opportunities.filter(opp => opp.id !== opportunityId);
+    setOpportunities(updatedOpportunities);
+    
+    if (updatedOpportunities.length === 0) {
+      setCurrentOpportunityIndex(0);
+    } else if (currentOpportunityIndex >= updatedOpportunities.length) {
+      setCurrentOpportunityIndex(0);
+    } else {
+      setCurrentOpportunityIndex(currentOpportunityIndex);
     }
   };
 
