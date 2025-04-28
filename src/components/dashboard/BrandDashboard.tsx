@@ -64,7 +64,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     if (user) {
       fetchCategories();
       fetchUserMatches();
-      fetchOpportunities(true); // Initial fetch, reset index
     }
   }, [user]);
 
@@ -148,8 +147,14 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       return;
     }
     
+    // Filter out opportunities that are already matched (pending or accepted) or rejected
     const filteredOpportunities = data.filter(
-      opp => !matches.includes(opp.id) && !rejections.includes(opp.id)
+      opp => 
+        !userMatches.some(match => 
+          match.opportunity_id === opp.id && 
+          (match.status === 'pending' || match.status === 'accepted')
+        ) && // Exclude opportunities with pending or accepted matches
+        !rejections.includes(opp.id) // Exclude rejections
     );
     
     setOpportunities(filteredOpportunities);
@@ -163,9 +168,12 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     }
   };
 
+  // Fetch opportunities whenever filters or userMatches change
   useEffect(() => {
-    fetchOpportunities(true); // Reset index when filters change
-  }, [selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery]);
+    if (user) {
+      fetchOpportunities(true); // Reset index when filters or matches change
+    }
+  }, [user, selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery, userMatches]);
 
   const handleLike = async (opportunityId: string) => {
     if (!user) return;
@@ -558,7 +566,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
               </button>
             </div>
           ) : (
-            <div className="relative h-[600px] bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="relative h-[600px] bg epinephrine rounded-lg shadow-sm overflow-hidden">
               {currentOpportunity ? (
                 <div className="h-full flex flex-col">
                   {currentOpportunity.media_urls && currentOpportunity.media_urls.length > 0 ? (
