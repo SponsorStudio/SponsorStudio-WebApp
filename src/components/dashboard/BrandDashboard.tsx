@@ -63,7 +63,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   useEffect(() => {
     if (user) {
       fetchCategories();
-      fetchOpportunities();
       fetchUserMatches();
     }
   }, [user]);
@@ -101,7 +100,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       const matchedOpportunityIds = matchesData.map(match => match.opportunity_id);
       setMatches(matchedOpportunityIds);
       setUserMatches(matchesData as Match[]);
-
+      
       setStats({
         total: opportunities.length,
         pending: matchesData.filter(m => m.status === 'pending').length,
@@ -113,7 +112,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     }
   };
 
-  const fetchOpportunities = async () => {
+  const fetchOpportunities = async (resetIndex: boolean = false) => {
     let query = supabase
       .from('opportunities')
       .select('*, categories(*)')
@@ -148,17 +147,33 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       return;
     }
     
+    // Filter out opportunities that are already matched (pending or accepted) or rejected
     const filteredOpportunities = data.filter(
-      opp => !matches.includes(opp.id) && !rejections.includes(opp.id)
+      opp => 
+        !userMatches.some(match => 
+          match.opportunity_id === opp.id && 
+          (match.status === 'pending' || match.status === 'accepted')
+        ) && // Exclude opportunities with pending or accepted matches
+        !rejections.includes(opp.id) // Exclude rejections
     );
     
     setOpportunities(filteredOpportunities);
     setLoading(false);
+    
+    // Reset index only on initial load or filter change
+    if (resetIndex && filteredOpportunities.length > 0) {
+      setCurrentOpportunityIndex(0);
+    } else if (filteredOpportunities.length > 0 && currentOpportunityIndex >= filteredOpportunities.length) {
+      setCurrentOpportunityIndex(0);
+    }
   };
 
+  // Fetch opportunities whenever filters or userMatches change
   useEffect(() => {
-    fetchOpportunities();
-  }, [selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery, matches, rejections]);
+    if (user) {
+      fetchOpportunities(true); // Reset index when filters or matches change
+    }
+  }, [user, selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery, userMatches]);
 
   const handleLike = async (opportunityId: string) => {
     if (!user) return;
@@ -211,11 +226,20 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
         }
       }
       
-      setMatches([...matches, opportunityId]);
+      const updatedMatches = [...matches, opportunityId];
+      setMatches(updatedMatches);
       fetchUserMatches();
       
-      if (currentOpportunityIndex < opportunities.length - 1) {
-        setCurrentOpportunityIndex(currentOpportunityIndex + 1);
+      // Update opportunities and index in one step
+      const updatedOpportunities = opportunities.filter(opp => opp.id !== opportunityId);
+      setOpportunities(updatedOpportunities);
+      
+      if (updatedOpportunities.length === 0) {
+        setCurrentOpportunityIndex(0);
+      } else if (currentOpportunityIndex >= updatedOpportunities.length) {
+        setCurrentOpportunityIndex(0);
+      } else {
+        setCurrentOpportunityIndex(currentOpportunityIndex);
       }
     } catch (error) {
       console.error('Error creating match:', error);
@@ -223,10 +247,19 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   };
 
   const handleReject = (opportunityId: string) => {
-    setRejections([...rejections, opportunityId]);
+    const updatedRejections = [...rejections, opportunityId];
+    setRejections(updatedRejections);
     
-    if (currentOpportunityIndex < opportunities.length - 1) {
-      setCurrentOpportunityIndex(currentOpportunityIndex + 1);
+    // Update opportunities and index in one step
+    const updatedOpportunities = opportunities.filter(opp => opp.id !== opportunityId);
+    setOpportunities(updatedOpportunities);
+    
+    if (updatedOpportunities.length === 0) {
+      setCurrentOpportunityIndex(0);
+    } else if (currentOpportunityIndex >= updatedOpportunities.length) {
+      setCurrentOpportunityIndex(0);
+    } else {
+      setCurrentOpportunityIndex(currentOpportunityIndex);
     }
   };
 
@@ -245,6 +278,38 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const pendingMatches = userMatches.filter(match => match.status === 'pending');
   const acceptedMatches = userMatches.filter(match => match.status === 'accepted');
   const rejectedMatches = userMatches.filter(match => match.status === 'rejected');
+
+  // Function to generate Google Calendar event link with "Notes:" removed
+  const generateGoogleCalendarLink = (match: Match) => {
+    const event = {
+      title: `Meeting for ${match.opportunities?.title || 'Opportunity'}`,
+      description: `Meeting with brand and creator.\nJoin Meeting: ${match.meeting_link || ''}`,
+      start: match.meeting_scheduled_at || new Date().toISOString(),
+      end: match.meeting_scheduled_at 
+        ? new Date(new Date(match.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString() 
+        : new Date(new Date().getTime() + 60 * 60 * 1000).toISOString(),
+      location: match.meeting_link || match.opportunities?.location || 'TBD',
+    };
+
+    const baseUrl = 'https://calendar.google.com/calendar/render';
+    const startTime = new Date(event.start).toISOString().replace(/[-:]/g, '').split('.')[0];
+    const endTime = new Date(event.end).toISOString().replace(/[-:]/g, '').split('.')[0];
+    const dates = `${startTime}%2F${endTime}`; // Use %2F directly for date separator
+
+    // Encode the description directly, letting encodeURIComponent handle \n to %0A conversion
+    const encodedDescription = encodeURIComponent(event.description.trim());
+
+    // Construct the URL manually to avoid double-encoding
+    const params = [
+      `action=TEMPLATE`,
+      `text=${encodeURIComponent(event.title.trim()).replace(/%20/g, '+')}`, // Replace %20 with + for spaces in text
+      `dates=${dates}`, // Already formatted with %2F
+      `details=${encodedDescription}`, // Encode description with \n converted to %0A
+      `location=${encodeURIComponent(event.location.trim())}`, // Encode location
+    ];
+
+    return `${baseUrl}?${params.join('&')}`;
+  };
 
   if (loading) {
     return (
@@ -501,7 +566,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
               </button>
             </div>
           ) : (
-            <div className="relative h-[600px] bg-white rounded-lg shadow-sm overflow-hidden">
+            <div className="relative h-[600px] bg epinephrine rounded-lg shadow-sm overflow-hidden">
               {currentOpportunity ? (
                 <div className="h-full flex flex-col">
                   {currentOpportunity.media_urls && currentOpportunity.media_urls.length > 0 ? (
@@ -672,17 +737,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                             </p>
                           </div>
                           <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
-                            {match.opportunities?.calendly_link && (
-                              <a 
-                                href={match.opportunities.calendly_link} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center"
-                              >
-                                <Calendar className="w-4 h-4 mr-1" />
-                                Schedule Meeting
-                              </a>
-                            )}
                             {match.opportunities?.sponsorship_brochure_url && (
                               <a 
                                 href={match.opportunities.sponsorship_brochure_url} 
@@ -727,22 +781,17 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                                 Meeting scheduled for: {new Date(match.meeting_scheduled_at).toLocaleString()}
                               </p>
                             )}
-                            {match.meeting_link && (
-                              <p className="text-sm text-gray-600">
-                                Meeting link: <a href={match.meeting_link} target="_blank" rel="noopener noreferrer" className="text-[#2B4B9B] hover:underline">{match.meeting_link}</a>
-                              </p>
-                            )}
                           </div>
                           <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
-                            {match.opportunities?.calendly_link && (
+                            {match.meeting_link && (
                               <a 
-                                href={match.opportunities.calendly_link} 
+                                href={match.meeting_link} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center"
                               >
                                 <Calendar className="w-4 h-4 mr-1" />
-                                Reschedule Meeting
+                                Join Meeting
                               </a>
                             )}
                             {match.opportunities?.sponsorship_brochure_url && (
@@ -754,6 +803,17 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                               >
                                 <FileText className="w-4 h-4 mr-1" />
                                 View Brochure
+                              </a>
+                            )}
+                            {match.meeting_scheduled_at && (
+                              <a
+                                href={generateGoogleCalendarLink(match)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 flex items-center"
+                              >
+                                <Calendar className="w-4 h-4 mr-1" />
+                                Add to Calendar
                               </a>
                             )}
                           </div>
