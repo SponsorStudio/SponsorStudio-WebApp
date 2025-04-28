@@ -18,6 +18,38 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
   // Filter only accepted matches
   const scheduledMeetings = meetings.filter(meeting => meeting.status === 'accepted');
 
+  // Function to generate Google Calendar event link
+  const generateGoogleCalendarLink = (meeting: Match) => {
+    const event = {
+      title: `Meeting for ${isBrand ? meeting.opportunities?.title || 'Opportunity' : meeting.profiles?.company_name || 'Brand Meeting'}`,
+      description: `Meeting with ${isBrand ? 'creator' : 'brand'}.\nJoin Meeting: ${meeting.meeting_link || ''}`,
+      start: meeting.meeting_scheduled_at || new Date().toISOString(),
+      end: meeting.meeting_scheduled_at 
+        ? new Date(new Date(meeting.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString() 
+        : new Date(new Date().getTime() + 60 * 60 * 1000).toISOString(),
+      location: meeting.meeting_link || 'TBD',
+    };
+
+    const baseUrl = 'https://calendar.google.com/calendar/render';
+    const startTime = new Date(event.start).toISOString().replace(/[-:]/g, '').split('.')[0];
+    const endTime = new Date(event.end).toISOString().replace(/[-:]/g, '').split('.')[0];
+    const dates = `${startTime}%2F${endTime}`; // Use %2F directly for date separator
+
+    // Encode the description directly, letting encodeURIComponent handle \n to %0A conversion
+    const encodedDescription = encodeURIComponent(event.description.trim());
+
+    // Construct the URL manually to avoid double-encoding
+    const params = [
+      `action=TEMPLATE`,
+      `text=${encodeURIComponent(event.title.trim()).replace(/%20/g, '+')}`, // Replace %20 with + for spaces in text
+      `dates=${dates}`, // Already formatted with %2F
+      `details=${encodedDescription}`, // Encode description with \n converted to %0A
+      `location=${encodeURIComponent(event.location.trim())}`, // Encode location
+    ];
+
+    return `${baseUrl}?${params.join('&')}`;
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Scheduled Meetings</h2>
@@ -66,7 +98,7 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
                       ? new Date(meeting.meeting_scheduled_at).toLocaleString()
                       : 'Not scheduled'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm space-x-4">
                     {meeting.meeting_link ? (
                       <a
                         href={meeting.meeting_link}
@@ -78,6 +110,16 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
                       </a>
                     ) : (
                       <span className="text-gray-400">No link available</span>
+                    )}
+                    {meeting.meeting_scheduled_at && meeting.meeting_link && (
+                      <a
+                        href={generateGoogleCalendarLink(meeting)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#2B4B9B] hover:text-[#1a2f61]"
+                      >
+                        Add to Calendar
+                      </a>
                     )}
                   </td>
                 </tr>
