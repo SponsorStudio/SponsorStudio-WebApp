@@ -42,7 +42,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import EventAnalytics from './EventAnalytics';
-import Modal from '../../components/Modal'; // Import the new Modal component
+import Modal from '../../components/Modal';
 import type { Database } from '../../lib/database.types';
 import emailjs from '@emailjs/browser';
 
@@ -575,6 +575,34 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
     setShowAnalytics(true);
   };
 
+  const generateGoogleCalendarLink = (match: Match) => {
+    const event = {
+      title: `Meeting for ${match.opportunities?.title || 'Opportunity'}`,
+      description: `Meeting with brand and creator.\nJoin Meeting: ${match.meeting_link || ''}`,
+      start: match.meeting_scheduled_at || new Date().toISOString(),
+      end: match.meeting_scheduled_at ? new Date(new Date(match.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString() : new Date().toISOString(),
+      location: match.meeting_link || '',
+    };
+
+    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
+    const formatDate = (date: string) => {
+      return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const startDate = formatDate(event.start);
+    const endDate = formatDate(event.end);
+
+    // Construct the Google Calendar URL
+    const googleCalendarUrl = new URL('https://calendar.google.com/calendar/render');
+    googleCalendarUrl.searchParams.append('action', 'TEMPLATE');
+    googleCalendarUrl.searchParams.append('text', event.title);
+    googleCalendarUrl.searchParams.append('dates', `${startDate}/${endDate}`);
+    googleCalendarUrl.searchParams.append('details', event.description);
+    googleCalendarUrl.searchParams.append('location', event.location);
+
+    return googleCalendarUrl.toString();
+  };
+
   const pendingMatches = matches.filter(match => match.status === 'pending');
   const acceptedMatches = matches.filter(match => match.status === 'accepted');
   const rejectedMatches = matches.filter(match => match.status === 'rejected');
@@ -677,7 +705,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           <p className="text-3xl font-bold text-gray-900">{pendingMatches.length}</p>
           <div className="flex items-center mt-2 text-sm">
             <span className="text-gray-500">Awaiting your response</span>
-          </div>
+          </ div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm">
@@ -1403,7 +1431,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   <div className="space-y-3">
                     {acceptedMatches.map(match => (
                       <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between">
+                        <div className="flex justify-between items-start">
                           <div>
                             <div className="flex items-center">
                               <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
@@ -1424,28 +1452,43 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               </p>
                             )}
                             {match.meeting_scheduled_at && (
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-gray-600 flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
                                 Meeting: {new Date(match.meeting_scheduled_at).toLocaleString()}
                               </p>
                             )}
-                          </div>
-                          <div>
                             {match.meeting_link ? (
-                              <a 
-                                href={match.meeting_link} 
-                                target="_blank" 
+                              <p className="text-sm text-[#2B4B9B] flex items-center mt-1">
+                                <LinkIcon className="w-4 h-4 mr-1" />
+                                <a href={match.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                  Join Meeting
+                                </a>
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-600 flex items-center mt-1">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                Our team will schedule a meeting soon
+                              </p>
+                            )}
+                            {match.notes && (
+                              <p className="text-sm text-gray-600 flex items-start mt-1">
+                                <FileIcon className="w-4 h-4 mr-1 mt-1" />
+                                Notes: {match.notes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex space-x-2">
+                            {match.meeting_link && match.meeting_scheduled_at ? (
+                              <a
+                                href={generateGoogleCalendarLink(match)}
+                                target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center"
+                                className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
                               >
                                 <Calendar className="w-4 h-4 mr-1" />
-                                Join Meeting
+                                Add to Google Calendar
                               </a>
-                            ) : (
-                              <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center">
-                                <Calendar className="w-4 h-4 mr-1" />
-                                Schedule Meeting
-                              </button>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </div>

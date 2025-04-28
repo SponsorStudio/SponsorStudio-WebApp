@@ -101,7 +101,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       const matchedOpportunityIds = matchesData.map(match => match.opportunity_id);
       setMatches(matchedOpportunityIds);
       setUserMatches(matchesData as Match[]);
-
+      
       setStats({
         total: opportunities.length,
         pending: matchesData.filter(m => m.status === 'pending').length,
@@ -245,6 +245,38 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const pendingMatches = userMatches.filter(match => match.status === 'pending');
   const acceptedMatches = userMatches.filter(match => match.status === 'accepted');
   const rejectedMatches = userMatches.filter(match => match.status === 'rejected');
+
+  // Function to generate Google Calendar event link with "Notes:" removed
+  const generateGoogleCalendarLink = (match: Match) => {
+    const event = {
+      title: `Meeting for ${match.opportunities?.title || 'Opportunity'}`,
+      description: `Meeting with brand and creator.\nJoin Meeting: ${match.meeting_link || ''}`,
+      start: match.meeting_scheduled_at || new Date().toISOString(),
+      end: match.meeting_scheduled_at 
+        ? new Date(new Date(match.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString() 
+        : new Date(new Date().getTime() + 60 * 60 * 1000).toISOString(),
+      location: match.meeting_link || match.opportunities?.location || 'TBD',
+    };
+
+    const baseUrl = 'https://calendar.google.com/calendar/render';
+    const startTime = new Date(event.start).toISOString().replace(/[-:]/g, '').split('.')[0];
+    const endTime = new Date(event.end).toISOString().replace(/[-:]/g, '').split('.')[0];
+    const dates = `${startTime}%2F${endTime}`; // Use %2F directly for date separator
+
+    // Encode the description directly, letting encodeURIComponent handle \n to %0A conversion
+    const encodedDescription = encodeURIComponent(event.description.trim());
+
+    // Construct the URL manually to avoid double-encoding
+    const params = [
+      `action=TEMPLATE`,
+      `text=${encodeURIComponent(event.title.trim()).replace(/%20/g, '+')}`, // Replace %20 with + for spaces in text
+      `dates=${dates}`, // Already formatted with %2F
+      `details=${encodedDescription}`, // Encode description with \n converted to %0A
+      `location=${encodeURIComponent(event.location.trim())}`, // Encode location
+    ];
+
+    return `${baseUrl}?${params.join('&')}`;
+  };
 
   if (loading) {
     return (
@@ -738,6 +770,17 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                               >
                                 <FileText className="w-4 h-4 mr-1" />
                                 View Brochure
+                              </a>
+                            )}
+                            {match.meeting_scheduled_at && (
+                              <a
+                                href={generateGoogleCalendarLink(match)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 flex items-center"
+                              >
+                                <Calendar className="w-4 h-4 mr-1" />
+                                Add to Calendar
                               </a>
                             )}
                           </div>

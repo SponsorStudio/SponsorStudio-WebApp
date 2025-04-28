@@ -66,6 +66,7 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
   const [loading, setLoading] = useState(true);
   const [expandedMatch, setExpandedMatch] = useState<string | null>(null);
   const [newMeetingLink, setNewMeetingLink] = useState<string>('');
+  const [meetingScheduledAt, setMeetingScheduledAt] = useState<string>('');
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [matchFilter, setMatchFilter] = useState<'pending' | 'accepted' | 'rejected' | 'all'>('all');
 
@@ -219,8 +220,8 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
   });
 
   const handleSaveMeetingLink = async (matchId: string) => {
-    if (!newMeetingLink) {
-      toast.error('Please enter a meeting link');
+    if (!newMeetingLink || !meetingScheduledAt) {
+      toast.error('Please enter both a meeting link and scheduled date/time');
       return;
     }
 
@@ -228,25 +229,54 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
       setProcessingAction(matchId);
       const { error } = await supabase
         .from('matches')
-        .update({ meeting_link: newMeetingLink })
+        .update({ meeting_link: newMeetingLink, meeting_scheduled_at: meetingScheduledAt })
         .eq('id', matchId);
 
       if (error) throw error;
 
       setMatches(prevMatches =>
         prevMatches.map(match =>
-          match.id === matchId ? { ...match, meeting_link: newMeetingLink } : match
+          match.id === matchId ? { ...match, meeting_link: newMeetingLink, meeting_scheduled_at: meetingScheduledAt } : match
         )
       );
       setNewMeetingLink('');
+      setMeetingScheduledAt('');
       setExpandedMatch(null);
-      toast.success('Meeting link saved successfully');
+      toast.success('Meeting details saved successfully');
     } catch (error) {
-      console.error('Error saving meeting link:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save meeting link');
+      console.error('Error saving meeting details:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to save meeting details');
     } finally {
       setProcessingAction(null);
     }
+  };
+
+  const generateGoogleCalendarLink = (match: Match) => {
+    const event = {
+      title: `Meeting for ${match.opportunity?.title || 'Opportunity'}`,
+      description: `Meeting with brand and creator.\nNotes: ${match.notes || ''}\nJoin Meeting: ${match.meeting_link || ''}`,
+      start: match.meeting_scheduled_at || new Date().toISOString(),
+      end: match.meeting_scheduled_at ? new Date(new Date(match.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString() : new Date().toISOString(),
+      location: match.meeting_link || '',
+    };
+
+    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
+    const formatDate = (date: string) => {
+      return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+    };
+
+    const startDate = formatDate(event.start);
+    const endDate = formatDate(event.end);
+
+    // Construct the Google Calendar URL
+    const googleCalendarUrl = new URL('https://calendar.google.com/calendar/render');
+    googleCalendarUrl.searchParams.append('action', 'TEMPLATE');
+    googleCalendarUrl.searchParams.append('text', event.title);
+    googleCalendarUrl.searchParams.append('dates', `${startDate}/${endDate}`);
+    googleCalendarUrl.searchParams.append('details', event.description);
+    googleCalendarUrl.searchParams.append('location', event.location);
+
+    return googleCalendarUrl.toString();
   };
 
   return (
@@ -487,22 +517,38 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
                     </div>
                     {match.status?.trim().toLowerCase() === 'accepted' && (
                       <div className="mt-6">
-                        <h4 className="font-semibold text-gray-900 mb-4">Set Meeting Link</h4>
-                        <div className="flex gap-2">
+                        <h4 className="font-semibold text-gray-900 mb-4">Set Meeting Details</h4>
+                        <div className="flex flex-col md:flex-row gap-2">
                           <input
                             type="text"
                             value={newMeetingLink}
                             onChange={(e) => setNewMeetingLink(e.target.value)}
-                            placeholder="Enter meeting link (e.g., https://zoom.us/j/123456789)"
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                            placeholder="Enter meeting link (e.g., https://meet.google.com/xxx-yyyy-zzz)"
+                            className="w-full md:w-1/2 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                          />
+                          <input
+                            type="datetime-local"
+                            value={meetingScheduledAt}
+                            onChange={(e) => setMeetingScheduledAt(e.target.value)}
+                            className="w-full md:w-1/2 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                           />
                           <button
                             onClick={() => handleSaveMeetingLink(match.id)}
-                            disabled={processingAction === match.id || !newMeetingLink}
+                            disabled={processingAction === match.id || !newMeetingLink || !meetingScheduledAt}
                             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
                           >
                             {processingAction === match.id ? 'Saving...' : 'Save'}
                           </button>
+                          {(match.meeting_link && match.meeting_scheduled_at) && (
+                            <a
+                              href={generateGoogleCalendarLink(match)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-center"
+                            >
+                              Add to Google Calendar
+                            </a>
+                          )}
                         </div>
                       </div>
                     )}
