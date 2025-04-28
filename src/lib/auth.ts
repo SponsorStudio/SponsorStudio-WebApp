@@ -40,7 +40,6 @@ export async function signUp(email: string, password: string, userType: Profile[
     });
 
     if (authError) {
-      // Provide more specific error messages
       if (authError.message.includes('already registered')) {
         toast.error('This email is already registered');
         throw new Error('This email is already registered');
@@ -59,10 +58,10 @@ export async function signUp(email: string, password: string, userType: Profile[
       .insert({
         id: authData.user.id,
         user_type: userType,
+        created_at: new Date().toISOString(),
       });
 
     if (profileError) {
-      // If profile creation fails, we should clean up the auth user
       await supabase.auth.signOut();
       toast.error('Failed to create user profile');
       throw new Error('Failed to create user profile');
@@ -71,7 +70,6 @@ export async function signUp(email: string, password: string, userType: Profile[
     toast.success('Account created successfully!');
     return authData;
   } catch (error) {
-    // Ensure we always throw an Error object with a message
     if (error instanceof Error) {
       throw error;
     }
@@ -81,7 +79,6 @@ export async function signUp(email: string, password: string, userType: Profile[
 }
 
 export async function signIn(email: string, password: string) {
-  // Validate email and password
   if (!validateEmail(email)) {
     toast.error('Invalid email format');
     throw new Error('Invalid email format');
@@ -99,7 +96,6 @@ export async function signIn(email: string, password: string) {
     });
 
     if (error) {
-      // Provide more specific error messages
       if (error.message.includes('Invalid login credentials')) {
         toast.error('Invalid email or password');
         throw new Error('Invalid email or password');
@@ -108,7 +104,6 @@ export async function signIn(email: string, password: string) {
       throw error;
     }
 
-    // After successful sign in, fetch the user's profile
     if (data.user) {
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
@@ -121,7 +116,6 @@ export async function signIn(email: string, password: string) {
         throw profileError;
       }
 
-      // For admin login, verify user type
       if (email === 'admin@sponsorstudio.in' && profileData.user_type !== 'admin') {
         await signOut();
         toast.error('Invalid admin credentials');
@@ -184,31 +178,108 @@ export async function getProfile() {
   }
 }
 
-export async function updateProfile(profile: Partial<Profile>) {
+export async function updateProfile(data: Partial<Profile>) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    
     if (!user) {
       toast.error('Not authenticated');
       throw new Error('Not authenticated');
     }
 
-    const { data, error } = await supabase
+    // Clean the data to remove fields that shouldn't be updated
+    const updateData: Partial<Profile> = { ...data };
+    delete updateData.created_at;
+    delete updateData.id;
+
+    // Ensure updated_at is set
+    updateData.updated_at = new Date().toISOString();
+
+    // Validate and transform data to match schema
+    if (updateData.annual_marketing_budget !== undefined) {
+      if (updateData.annual_marketing_budget === '' || isNaN(Number(updateData.annual_marketing_budget))) {
+        updateData.annual_marketing_budget = null;
+      } else {
+        updateData.annual_marketing_budget = Number(updateData.annual_marketing_budget);
+      }
+    }
+
+    // Ensure array fields are arrays
+    if (updateData.marketing_channels && !Array.isArray(updateData.marketing_channels)) {
+      updateData.marketing_channels = updateData.marketing_channels
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (updateData.sponsorship_goals && !Array.isArray(updateData.sponsorship_goals)) {
+      updateData.sponsorship_goals = updateData.sponsorship_goals
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    if (updateData.previous_sponsorships && !Array.isArray(updateData.previous_sponsorships)) {
+      updateData.previous_sponsorships = updateData.previous_sponsorships
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    // Ensure JSONB fields are valid
+    if (updateData.social_media) {
+      const socialMedia = updateData.social_media;
+      if (
+        Object.values(socialMedia).every(
+          (value) => value === '' || value === null || value === undefined
+        )
+      ) {
+        updateData.social_media = null;
+      }
+    }
+    if (updateData.target_audience) {
+      const targetAudience = updateData.target_audience;
+      if (
+        !targetAudience.age_range ||
+        !targetAudience.genders ||
+        !targetAudience.interests ||
+        !targetAudience.locations
+      ) {
+        updateData.target_audience = null;
+      } else if (
+        targetAudience.genders.length === 0 &&
+        targetAudience.interests.length === 0 &&
+        targetAudience.locations.length === 0 &&
+        targetAudience.age_range.min === 0 &&
+        targetAudience.age_range.max === 0
+      ) {
+        updateData.target_audience = null;
+      }
+    }
+
+    console.log('Updating profile with data:', JSON.stringify(updateData, null, 2));
+
+    const { error, data: updatedData, status } = await supabase
       .from('profiles')
-      .update(profile)
+      .update(updateData)
       .eq('id', user.id)
-      .select()
+      .select('*')
       .single();
 
     if (error) {
+      console.error('Supabase update error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        status,
+      });
       toast.error('Error updating profile');
       throw error;
     }
 
     toast.success('Profile updated successfully');
-    return data;
+    return updatedData;
   } catch (error) {
     if (error instanceof Error) {
+      toast.error('Failed to update profile');
       throw error;
     }
     toast.error('Failed to update profile');
@@ -225,13 +296,11 @@ export async function uploadProfilePicture(file: File) {
       throw new Error('Not authenticated');
     }
 
-    // Check file type
     if (!file.type.match(/^image\/(jpeg|png)$/)) {
       toast.error('Only JPG and PNG files are allowed');
       throw new Error('Only JPG and PNG files are allowed');
     }
 
-    // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('File size must be less than 5MB');
       throw new Error('File size must be less than 5MB');
@@ -241,7 +310,6 @@ export async function uploadProfilePicture(file: File) {
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     const filePath = `profile-pictures/${fileName}`;
 
-    // Upload file to Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('public')
       .upload(filePath, file);
@@ -251,12 +319,10 @@ export async function uploadProfilePicture(file: File) {
       throw uploadError;
     }
 
-    // Get public URL
     const { data: { publicUrl } } = supabase.storage
       .from('public')
       .getPublicUrl(filePath);
 
-    // Update profile with new picture URL
     const { data, error: updateError } = await supabase
       .from('profiles')
       .update({ profile_picture_url: publicUrl })
