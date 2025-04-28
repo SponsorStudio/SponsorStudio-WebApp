@@ -264,7 +264,7 @@ export default function MatchedOpportunities({ searchTerm, setSearchTerm, stats,
   const generateGoogleCalendarLink = (match: Match) => {
     const event = {
       title: `Meeting for ${match.opportunity?.title || 'Opportunity'}`,
-      description: `Meeting with brand and creator.\nNotes: ${match.notes || ''}\nJoin Meeting: ${match.meeting_link || ''}`,
+      description: `Meeting with brand and creator.\nJoin Meeting: ${match.meeting_link || ''}`,
       start: match.meeting_scheduled_at || new Date().toISOString(),
       end: match.meeting_scheduled_at ? new Date(new Date(match.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString() : new Date().toISOString(),
       location: match.meeting_link || '',
