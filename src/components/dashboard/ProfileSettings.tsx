@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { updateProfile } from '../../lib/auth';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
-import { Save, X } from 'lucide-react';
+import { Save, X, Camera , SquarePen } from 'lucide-react';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -14,6 +15,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
     company_name: profile?.company_name || '',
+    email: profile?.email || '',
     website: profile?.website || '',
     industry: profile?.industry || '',
     industry_details: profile?.industry_details || '',
@@ -26,6 +28,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     contact_person_name: profile?.contact_person_name || '',
     contact_person_position: profile?.contact_person_position || '',
     contact_person_phone: profile?.contact_person_phone || '',
+    profile_picture_url: profile?.profile_picture_url || '',
     social_media: profile?.social_media || {
       linkedin: '',
       twitter: '',
@@ -40,7 +43,9 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       income_level: ''
     }
   });
+  const [previewImage, setPreviewImage] = useState<string | null>(formData.profile_picture_url || null);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
@@ -77,6 +82,85 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         ...formData,
         [name]: value
       });
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setError('No file selected');
+      return;
+    }
+
+    // Validate file type
+    if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+      setError('Profile picture must be JPEG, PNG, or GIF');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Profile picture must be less than 5MB');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Create preview URL
+      const imageUrl = URL.createObjectURL(file);
+      setPreviewImage(imageUrl);
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+      const filePath = `profile-pictures/${fileName}`;
+
+      // Delete old profile picture if exists
+      if (formData.profile_picture_url) {
+        const oldFilePath = formData.profile_picture_url.split('/').slice(-2).join('/');
+        const { error: removeError } = await supabase.storage.from('public').remove([oldFilePath]);
+        if (removeError) {
+          console.error('Failed to remove old file:', removeError);
+        }
+      }
+
+      // Convert file to ArrayBuffer
+      const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsArrayBuffer(file);
+      });
+
+      // Upload to Supabase storage
+      const { data, error: uploadError } = await supabase.storage
+        .from('public')
+        .upload(filePath, fileBuffer, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage.from('public').getPublicUrl(filePath);
+      if (!publicUrlData?.publicUrl) {
+        throw new Error('Failed to generate public URL');
+      }
+
+      // Update formData with the new URL
+      setFormData(prev => ({
+        ...prev,
+        profile_picture_url: publicUrlData.publicUrl
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload profile picture');
+      console.error('File upload error:', err);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -144,7 +228,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
 
   const handlePreviousSponsorshipsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     try {
-      // Try to parse as JSON if it looks like JSON
       if (e.target.value.trim().startsWith('[')) {
         const sponsorships = JSON.parse(e.target.value);
         setFormData({
@@ -152,7 +235,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           previous_sponsorships: sponsorships
         });
       } else {
-        // Otherwise treat as comma-separated list
         const sponsorships = e.target.value.split(',').map(s => s.trim());
         setFormData({
           ...formData,
@@ -160,7 +242,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         });
       }
     } catch (err) {
-      // If JSON parsing fails, just store as is
       setFormData({
         ...formData,
         previous_sponsorships: e.target.value
@@ -203,13 +284,98 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       {error && (
         <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError('')} className="text-red-700">
+          <button onClick={() => setError('')} className="text-green-700">
             <X className="w-5 h-5" />
           </button>
         </div>
       )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Centered Profile Picture Section */}
+        <div className="flex justify-center items-center my-6">
+          <div className="text-center">
+            <label
+              htmlFor="profile_picture"
+              className="relative group cursor-pointer block"
+              aria-label="Change profile picture"
+            >
+              <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                {previewImage ? (
+                  <img
+                    src={previewImage}
+                    alt="Profile preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <svg
+                    className="w-12 h-12 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                )}
+              </div>
+              {/* Always-visible edit indicator */}
+              {!uploading && (
+                <div className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md">
+                  <SquarePen className="w-5 h-5 text-gray-600" />
+                </div>
+              )}
+              {/* Hover overlay */}
+              <div
+                className={`absolute inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center rounded-full transition-opacity ${
+                  uploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                }`}
+              >
+                {uploading ? (
+                  <svg
+                    className="animate-spin h-6 w-6 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                ) : (
+                  <div className="flex items-center space-x-1">
+                    <Camera className="w-5 h-5 text-white" />
+                    <span className="text-sm text-white font-medium">Change</span>
+                  </div>
+                )}
+              </div>
+            </label>
+            <input
+              type="file"
+              id="profile_picture"
+              name="profile_picture"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+              disabled={uploading}
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h3 className="text-lg font-medium text-gray-800 mb-4">Company Information</h3>
@@ -326,6 +492,20 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
             <h3 className="text-lg font-medium text-gray-800 mb-4">Contact Information</h3>
             
             <div className="space-y-4">
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                />
+              </div>
+              
               <div>
                 <label htmlFor="contact_person_name" className="block text-sm font-medium text-gray-700 mb-1">
                   Contact Person Name
@@ -607,7 +787,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || uploading}
             className="inline-flex items-center px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B] disabled:opacity-50"
           >
             {loading ? (
