@@ -75,7 +75,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
         }
 
         const { user, profile: userProfile } = await signIn(email, password);
-        toast.success('Welcome Kernals back!');
+        toast.success('Welcome back!');
         onSuccess();
       }
     } catch (err) {
@@ -236,24 +236,33 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
   return (
     <div className="w-full max-w-md mx-auto bg-white rounded-xl shadow-lg p-8">
       <style jsx>{`
-        .PhoneInput {
+        .PhoneInput,
+        input.custom-input,
+        select.custom-select {
           display: flex;
           align-items: center;
-          border: 1px solid #d1d5db;
+          border: 1px solid #d1d5db !important;
           border-radius: 0.5rem;
           padding: 0.5rem 1rem;
           background: white;
           transition: border-color 0.2s, box-shadow 0.2s;
           box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         }
-        .PhoneInput:hover {
-          border-color: #a1a1aa;
+        .PhoneInput:hover,
+        input.custom-input:hover,
+        select.custom-select:hover {
+          border-color: #a1a1aa !important;
         }
-        .PhoneInput:focus-within {
-          border-color: #2B4B9B;
+        .PhoneInput:focus-within,
+        input.custom-input:focus,
+        select.custom-select:focus {
+          border-color: #2B4B9B !important;
           box-shadow: 0 0 0 2px rgba(43, 75, 155, 0.2);
+          outline: none;
         }
-        .PhoneInputInput {
+        .PhoneInputInput,
+        input.custom-input,
+        select.custom-select {
           border: none;
           outline: none;
           flex: 1;
@@ -263,7 +272,8 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
           color: #111827;
           width: 100%;
         }
-        .PhoneInputInput::placeholder {
+        .PhoneInputInput::placeholder,
+        input.custom-input::placeholder {
           color: #9ca3af;
         }
         .PhoneInputCountry {
@@ -278,7 +288,9 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
         .PhoneInputCountrySelectArrow {
           display: none;
         }
-        .PhoneInput--disabled {
+        .PhoneInput--disabled,
+        input.custom-input:disabled,
+        select.custom-select:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
@@ -324,7 +336,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
                   defaultCountry="US"
                   value={phoneNumber}
                   onChange={setPhoneNumber}
-                  className="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#2B4B9B] focus:ring-[#2B4B9B] disabled:opacity-50"
+                  className="mt-1 block w-full shadow-sm disabled:opacity-50"
                   required
                   disabled={loading}
                   placeholder="+12025550123"
@@ -343,7 +355,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1 block w-full px-4 py-2 rounded-lg border-gray-300 shadow-sm focus:border-[#2B4B9B] focus:ring-[#2B4B9B] disabled:opacity-50"
+                  className="mt-1 block w-full px-4 py-2 shadow-sm custom-input disabled:opacity-50"
                   required
                   disabled={loading}
                 />
@@ -360,7 +372,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full px-4 py-2 rounded-lg border-gray-300 shadow-sm focus:border-[#2B4B9B] focus:ring-[#2B4B9B] pr-10 disabled:opacity-50"
+                  className="block w-full px-4 py-2 shadow-sm custom-input pr-10 disabled:opacity-50"
                   required
                   disabled={loading}
                 />
@@ -384,7 +396,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
                   id="userType"
                   value={userType}
                   onChange={(e) => setUserType(e.target.value as UserType)}
-                  className="mt-1 block w-full px-4 py-2 rounded-lg border-gray-300 shadow-sm focus:border-[#2B4B9B] focus:ring-[#2B4B9B] disabled:opacity-50"
+                  className="mt-1 block w-full px-4 py-2 shadow-sm custom-select disabled:opacity-50"
                   required
                   disabled={loading}
                 >
@@ -409,7 +421,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
                 type="text"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                className="mt-1 block w-full px-4 py-2 rounded-lg border-gray-300 shadow-sm focus:border-[#2B4B9B] focus:ring-[#2B4B9B] disabled:opacity-50"
+                className="mt-1 block w-full px-4 py-2 shadow-sm custom-input disabled:opacity-50"
                 required
                 disabled={loading}
               />
