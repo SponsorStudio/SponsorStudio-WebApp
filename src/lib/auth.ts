@@ -15,7 +15,7 @@ function validateEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
-export async function signUp(email: string, password: string, userType: Profile['user_type']) {
+export async function signUp(email: string, password: string, userType: Profile['user_type'], phoneNumber?: string) {
   // Validate email and password
   if (!validateEmail(email)) {
     toast.error('Invalid email format');
@@ -41,8 +41,8 @@ export async function signUp(email: string, password: string, userType: Profile[
 
     if (authError) {
       if (authError.message.includes('already registered')) {
-        toast.error('This email is already registered');
-        throw new Error('This email is already registered');
+        toast.error(phoneNumber ? 'This phone number or email is already registered' : 'This email is already registered');
+        throw new Error(phoneNumber ? 'This phone number or email is already registered' : 'This email is already registered');
       }
       toast.error(authError.message);
       throw authError;
@@ -58,6 +58,8 @@ export async function signUp(email: string, password: string, userType: Profile[
       .insert({
         id: authData.user.id,
         user_type: userType,
+        phone_number: phoneNumber,
+        email,
         created_at: new Date().toISOString(),
       });
 
@@ -67,7 +69,6 @@ export async function signUp(email: string, password: string, userType: Profile[
       throw new Error('Failed to create user profile');
     }
 
-    toast.success('Account created successfully!');
     return authData;
   } catch (error) {
     if (error instanceof Error) {
@@ -122,7 +123,6 @@ export async function signIn(email: string, password: string) {
         throw new Error('Invalid admin credentials');
       }
 
-      toast.success('Welcome back!');
       return { user: data.user, profile: profileData };
     }
 
@@ -265,7 +265,7 @@ export async function updateProfile(data: Partial<Profile>) {
 
     if (error) {
       console.error('Supabase update error:', {
-        message: error.message,
+        message: email,
         details: error.details,
         hint: error.hint,
         code: error.code,
