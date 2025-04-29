@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [meetings, setMeetings] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
 
   useEffect(() => {
     if ((location.state as any)?.activeTab) {
@@ -154,9 +155,18 @@ export default function Dashboard() {
             onClick={() => navigate('/')}
           />
           <div className="flex items-center space-x-3 mb-8">
-            <div className="w-10 h-10 rounded-full bg-[#2B4B9B] flex items-center justify-center text-white">
-              {userProfile?.company_name ? userProfile.company_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase()}
-            </div>
+            {userProfile?.profile_picture_url && !avatarError ? (
+              <img
+                src={userProfile.profile_picture_url}
+                alt="Profile"
+                className="w-10 h-10 rounded-full object-cover"
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-[#2B4B9B] flex items-center justify-center text-white">
+                {userProfile?.company_name ? userProfile.company_name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <p className="font-medium">{userProfile?.company_name || 'Your Account'}</p>
               <p className="text-sm text-gray-500">{userProfile?.user_type.replace('_', ' ')}</p>
