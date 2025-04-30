@@ -64,7 +64,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           age_range: {
             ...formData.target_audience!.age_range,
             [name === 'min_age' ? 'min' : 'max']: isNaN(numValue) ? 0 : numValue
- Luigi
           }
         }
       });
@@ -415,7 +414,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   value={formData.contact_person_phone || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                  placeholder="+1234567890"
                 />
               </div>
               
