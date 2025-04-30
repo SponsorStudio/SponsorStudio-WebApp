@@ -3,7 +3,7 @@ import { updateProfile } from '../../lib/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
-import { Save, X, Camera , SquarePen } from 'lucide-react';
+import { Save, X, Camera, SquarePen, CheckCircle } from 'lucide-react';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -28,6 +28,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     contact_person_name: profile?.contact_person_name || '',
     contact_person_position: profile?.contact_person_position || '',
     contact_person_phone: profile?.contact_person_phone || '',
+    phone_number_verified: profile?.phone_number_verified || false,
     profile_picture_url: profile?.profile_picture_url || '',
     social_media: profile?.social_media || {
       linkedin: '',
@@ -48,6 +49,10 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [emailVerificationPrompt, setEmailVerificationPrompt] = useState(false);
+  const [phoneVerificationPrompt, setPhoneVerificationPrompt] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [newPhoneNumber, setNewPhoneNumber] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -82,6 +87,12 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         ...formData,
         [name]: value
       });
+      if (name === 'contact_person_phone') {
+        setFormData(prev => ({
+          ...prev,
+          phone_number_verified: false // Reset verification status if phone number changes
+        }));
+      }
     }
   };
 
@@ -92,13 +103,11 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       return;
     }
 
-    // Validate file type
     if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
       setError('Profile picture must be JPEG, PNG, or GIF');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Profile picture must be less than 5MB');
       return;
@@ -106,16 +115,13 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
 
     setUploading(true);
     try {
-      // Create preview URL
       const imageUrl = URL.createObjectURL(file);
       setPreviewImage(imageUrl);
 
-      // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
       const filePath = `profile-pictures/${fileName}`;
 
-      // Delete old profile picture if exists
       if (formData.profile_picture_url) {
         const oldFilePath = formData.profile_picture_url.split('/').slice(-2).join('/');
         const { error: removeError } = await supabase.storage.from('public').remove([oldFilePath]);
@@ -124,7 +130,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         }
       }
 
-      // Convert file to ArrayBuffer
       const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as ArrayBuffer);
@@ -132,7 +137,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         reader.readAsArrayBuffer(file);
       });
 
-      // Upload to Supabase storage
       const { data, error: uploadError } = await supabase.storage
         .from('public')
         .upload(filePath, fileBuffer, {
@@ -145,13 +149,11 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         throw new Error(`Upload failed: ${uploadError.message}`);
       }
 
-      // Get public URL
       const { data: publicUrlData } = supabase.storage.from('public').getPublicUrl(filePath);
       if (!publicUrlData?.publicUrl) {
         throw new Error('Failed to generate public URL');
       }
 
-      // Update formData with the new URL
       setFormData(prev => ({
         ...prev,
         profile_picture_url: publicUrlData.publicUrl
@@ -249,18 +251,137 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     }
   };
 
+  const initiatePhoneVerification = async (phone: string) => {
+    try {
+      const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`;
+      setNewPhoneNumber(normalizedPhone);
+
+      const phoneRegex = /^\+[1-9]\d{1,14}$/;
+      if (!phoneRegex.test(normalizedPhone)) {
+        throw new Error('Invalid phone number format (e.g., +1234567890)');
+      }
+
+      setLoading(true);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('OTP request timed out')), 10000);
+      });
+
+      console.log('Initiating OTP for phone:', normalizedPhone);
+      const otpPromise = supabase.auth.signInWithOtp({
+        phone: normalizedPhone
+      });
+
+      const { error } = await Promise.race([otpPromise, timeoutPromise]);
+
+      if (error) {
+        throw new Error(`Failed to send verification code: ${error.message}`);
+      }
+
+      console.log('OTP sent successfully');
+      setPhoneVerificationPrompt(true);
+      setError('');
+    } catch (err) {
+      console.error('Phone verification initiation error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to initiate phone verification');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyPhoneCode = async () => {
+    try {
+      setLoading(true);
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Verification timed out')), 10000);
+      });
+
+      console.log('Verifying OTP for phone:', newPhoneNumber, 'with code:', verificationCode);
+      const verificationPromise = supabase.auth.verifyOtp({
+        phone: newPhoneNumber,
+        token: verificationCode,
+        type: 'sms'
+      });
+
+      const { error } = await Promise.race([verificationPromise, timeoutPromise]);
+
+      if (error) {
+        throw new Error(`Verification failed: ${error.message}`);
+      }
+
+      // Update profile with only the verified phone number and phone_number_verified
+      const updateData = {
+        contact_person_phone: newPhoneNumber,
+        phone_number_verified: true
+      };
+      console.log('Updating profile with data:', updateData);
+      await updateProfile(updateData);
+
+      setFormData(prev => ({
+        ...prev,
+        ...updateData
+      }));
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+      setPhoneVerificationPrompt(false);
+      setVerificationCode('');
+      setNewPhoneNumber('');
+    } catch (err: any) {
+      console.error('Phone verification error:', err);
+      const errorMessage = err.message.includes('Failed to update profile') && err.cause
+        ? `Failed to update profile: ${err.cause.message || 'Unknown error'}`
+        : err.message || 'Failed to verify phone number';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     setSuccess(false);
-    
+    setEmailVerificationPrompt(false);
+
     try {
-      await updateProfile(formData);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while updating your profile');
+      const emailChanged = formData.email !== profile?.email;
+      const phoneChanged = formData.contact_person_phone !== profile?.contact_person_phone;
+
+      console.log('handleSubmit - phoneChanged:', phoneChanged, 'emailChanged:', emailChanged, 'formData:', formData);
+
+      if (phoneChanged && !formData.phone_number_verified) {
+        await initiatePhoneVerification(formData.contact_person_phone);
+      } else {
+        if (emailChanged) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.email)) {
+            throw new Error('Invalid email format');
+          }
+
+          console.log('Updating auth email to:', formData.email);
+          const { error: authError } = await supabase.auth.updateUser({
+            email: formData.email
+          });
+
+          if (authError) {
+            throw new Error(`Failed to update authentication email: ${authError.message}`);
+          }
+
+          setEmailVerificationPrompt(true);
+        }
+
+        console.log('Updating profile with full formData:', formData);
+        await updateProfile(formData);
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('Submit error:', err);
+      const errorMessage = err.message.includes('Failed to update profile') && err.cause
+        ? `Failed to update profile: ${err.cause.message || 'Unknown error'}`
+        : err.message || 'An error occurred while updating your profile';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -281,17 +402,25 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         </div>
       )}
       
+      {emailVerificationPrompt && (
+        <div className="mb-6 p-4 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-between">
+          <span>Please check your new email ({formData.email}) to verify the change.</span>
+          <button onClick={() => setEmailVerificationPrompt(false)} className="text-blue-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+      
       {error && (
         <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError('')} className="text-green-700">
+          <button onClick={() => setError('')} className="text-red-700">
             <X className="w-5 h-5" />
           </button>
         </div>
       )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Centered Profile Picture Section */}
         <div className="flex justify-center items-center my-6">
           <div className="text-center">
             <label
@@ -323,13 +452,11 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   </svg>
                 )}
               </div>
-              {/* Always-visible edit indicator */}
               {!uploading && (
                 <div className="absolute bottom-2 right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md">
                   <SquarePen className="w-5 h-5 text-gray-600" />
                 </div>
               )}
-              {/* Hover overlay */}
               <div
                 className={`absolute inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center rounded-full transition-opacity ${
                   uploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
@@ -375,6 +502,51 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
             />
           </div>
         </div>
+
+        {phoneVerificationPrompt && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto">
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Verify Phone Number</h3>
+              <p className="text-xs text-gray-600 mb-4">
+                A verification code has been sent to {newPhoneNumber}.
+              </p>
+              <input
+                type="text"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value)}
+                placeholder="Enter verification code"
+                className="w-full px-3 py-1.5 border border-gray-300 rounded-md focus:ring-[#2B4B9B] focus:border-[#2B4B9B] mb-4 text-sm"
+                aria-label="Verification code"
+              />
+              {error && (
+                <div className="text-red-600 text-xs mb-4">{error}</div>
+              )}
+              <div className="flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhoneVerificationPrompt(false);
+                    setVerificationCode('');
+                    setNewPhoneNumber('');
+                    setError('');
+                    setLoading(false);
+                  }}
+                  className="px-3 py-1.5 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={verifyPhoneCode}
+                  disabled={loading || !verificationCode}
+                  className="px-3 py-1.5 bg-[#2B4B9B] text-white rounded-md hover:bg-[#1a2f61] disabled:opacity-50 text-sm"
+                >
+                  {loading ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
@@ -538,14 +710,32 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                 <label htmlFor="contact_person_phone" className="block text-sm font-medium text-gray-700 mb-1">
                   Phone Number
                 </label>
-                <input
-                  type="tel"
-                  id="contact_person_phone"
-                  name="contact_person_phone"
-                  value={formData.contact_person_phone}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="tel"
+                    id="contact_person_phone"
+                    name="contact_person_phone"
+                    value={formData.contact_person_phone}
+                    onChange={handleInputChange}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    placeholder="+1234567890"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => initiatePhoneVerification(formData.contact_person_phone)}
+                    disabled={loading || !formData.contact_person_phone || formData.phone_number_verified}
+                    className="px-3 py-1.5 bg-[#2B4B9B] text-white rounded-md hover:bg-[#1a2f61] disabled:opacity-50 flex items-center text-sm"
+                  >
+                    {formData.phone_number_verified ? (
+                      <>
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Verified
+                      </>
+                    ) : (
+                      'Verify Mobile'
+                    )}
+                  </button>
+                </div>
               </div>
               
               <div>
@@ -602,7 +792,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                 <div className="space-y-4">
                   <div>
                     <label htmlFor="annual_marketing_budget" className="block text-sm font-medium text-gray-700 mb-1">
-                      Annual Marketing Budget (USD)
+                      Annual Marketing Budget
                     </label>
                     <input
                       type="number"
