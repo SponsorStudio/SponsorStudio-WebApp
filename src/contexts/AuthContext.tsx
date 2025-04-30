@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '../lib/database.types';
+import toast from 'react-hot-toast';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -23,7 +24,6 @@ const AuthContext = createContext<AuthContextType>({
   setShowProfileDialog: () => {},
 });
 
-// Check if required profile fields are completed
 const checkProfileCompletion = (profile: Profile | null): boolean => {
   if (!profile) return false;
 
@@ -46,7 +46,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -56,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -77,7 +75,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const profileComplete = checkProfileCompletion(profile);
     setIsProfileComplete(profileComplete);
     
-    // Show dialog only if user is logged in, profile is incomplete, and not hidden for the session
     if (user && !profileComplete) {
       setShowProfileDialog(true);
     }
@@ -91,13 +88,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
 
-      if (error && status !== 406) throw error;
-
-      if (data) {
-        setProfile(data);
+      if (error && status !== 406) {
+        toast.error('Error fetching profile');
+        throw error;
       }
+
+      setProfile(data || null);
     } catch (error) {
       console.error('Error fetching profile:', error);
+      setProfile(null);
+      toast.error('Failed to fetch user profile');
     } finally {
       setLoading(false);
     }

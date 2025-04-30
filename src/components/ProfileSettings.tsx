@@ -13,13 +13,13 @@ interface ProfileSettingsProps {
 
 export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const { user } = useAuth();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Partial<Profile>>({
     company_name: profile?.company_name || '',
     website: profile?.website || '',
     industry: profile?.industry || '',
     industry_details: profile?.industry_details || '',
     company_size: profile?.company_size || '',
-    annual_marketing_budget: profile?.annual_marketing_budget || '',
+    annual_marketing_budget: profile?.annual_marketing_budget ?? null,
     marketing_channels: profile?.marketing_channels || [],
     previous_sponsorships: profile?.previous_sponsorships || [],
     sponsorship_goals: profile?.sponsorship_goals || [],
@@ -43,24 +43,27 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     
     if (name === 'annual_marketing_budget') {
       setFormData({
         ...formData,
-        [name]: value === '' ? '' : parseFloat(value)
+        [name]: value === '' ? null : parseFloat(value)
       });
     } else if (name === 'min_age' || name === 'max_age') {
+      const numValue = parseInt(value);
       setFormData({
         ...formData,
         target_audience: {
-          ...formData.target_audience as any,
+          ...formData.target_audience!,
           age_range: {
-            ...(formData.target_audience as any).age_range,
-            [name === 'min_age' ? 'min' : 'max']: parseInt(value) || 0
+            ...formData.target_audience!.age_range,
+            [name === 'min_age' ? 'min' : 'max']: isNaN(numValue) ? 0 : numValue
           }
         }
       });
@@ -69,7 +72,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       setFormData({
         ...formData,
         social_media: {
-          ...(formData.social_media as any),
+          ...formData.social_media!,
           [platform]: value
         }
       });
@@ -82,7 +85,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   };
 
   const handleArrayInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    const values = e.target.value.split(',').map(item => item.trim());
+    const values = e.target.value.split(',').map(item => item.trim()).filter(Boolean);
     setFormData({
       ...formData,
       [field]: values
@@ -91,7 +94,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
 
   const handleGenderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value, checked } = e.target;
-    const currentGenders = [...((formData.target_audience as any).genders || [])];
+    const currentGenders = [...(formData.target_audience?.genders || [])];
     
     if (checked && !currentGenders.includes(value)) {
       currentGenders.push(value);
@@ -103,74 +106,115 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     setFormData({
       ...formData,
       target_audience: {
-        ...formData.target_audience as any,
+        ...formData.target_audience!,
         genders: currentGenders
       }
     });
   };
 
   const handleInterestsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const interests = e.target.value.split(',').map(interest => interest.trim());
-    
+    const interests = e.target.value.split(',').map(interest => interest.trim()).filter(Boolean);
     setFormData({
       ...formData,
       target_audience: {
-        ...formData.target_audience as any,
+        ...formData.target_audience!,
         interests
       }
     });
   };
 
   const handleLocationsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const locations = e.target.value.split(',').map(location => location.trim());
-    
+    const locations = e.target.value.split(',').map(location => location.trim()).filter(Boolean);
     setFormData({
       ...formData,
       target_audience: {
-        ...formData.target_audience as any,
+        ...formData.target_audience!,
         locations
       }
     });
   };
 
   const handlePreviousSponsorshipsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const input = e.target.value.trim();
+    let sponsorships: string[] = [];
     try {
-      // Try to parse as JSON if it looks like JSON
-      if (e.target.value.trim().startsWith('[')) {
-        const sponsorships = JSON.parse(e.target.value);
-        setFormData({
-          ...formData,
-          previous_sponsorships: sponsorships
-        });
+      if (input.startsWith('[')) {
+        const parsed = JSON.parse(input);
+        if (Array.isArray(parsed)) {
+          sponsorships = parsed;
+        } else {
+          throw new Error('Invalid JSON array');
+        }
       } else {
-        // Otherwise treat as comma-separated list
-        const sponsorships = e.target.value.split(',').map(s => s.trim());
-        setFormData({
-          ...formData,
-          previous_sponsorships: sponsorships
-        });
+        sponsorships = input.split(',').map(s => s.trim()).filter(Boolean);
       }
     } catch (err) {
-      // If JSON parsing fails, just store as is
-      setFormData({
-        ...formData,
-        previous_sponsorships: e.target.value
-      });
+      console.warn('Invalid input for previous_sponsorships:', input);
+      sponsorships = input ? input.split(',').map(s => s.trim()).filter(Boolean) : [];
     }
+    setFormData({
+      ...formData,
+      previous_sponsorships: sponsorships
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError(null);
     setSuccess(false);
     
     try {
-      await updateProfile(formData);
+      const cleanedData: Partial<Profile> = {};
+      Object.keys(formData).forEach((key) => {
+        const value = formData[key as keyof Profile];
+        if (value === undefined || value === '') return;
+
+        if (key === 'annual_marketing_budget' && (value === null || isNaN(Number(value)))) {
+          cleanedData[key as keyof Profile] = null;
+        } else if (
+          key === 'marketing_channels' ||
+          key === 'sponsorship_goals' ||
+          key === 'previous_sponsorships'
+        ) {
+          const arrayValue = Array.isArray(value) ? value : [];
+          cleanedData[key as keyof Profile] = arrayValue.length > 0 ? arrayValue : null;
+        } else if (key === 'social_media') {
+          const socialMedia = value as Profile['social_media'];
+          if (
+            socialMedia &&
+            (socialMedia.linkedin ||
+              socialMedia.twitter ||
+              socialMedia.instagram ||
+              socialMedia.facebook)
+          ) {
+            cleanedData.social_media = socialMedia;
+          }
+        } else if (key === 'target_audience') {
+          const targetAudience = value as Profile['target_audience'];
+          if (
+            targetAudience &&
+            (targetAudience.age_range.min !== 0 ||
+              targetAudience.age_range.max !== 0 ||
+              targetAudience.genders.length > 0 ||
+              targetAudience.interests.length > 0 ||
+              targetAudience.locations.length > 0)
+          ) {
+            cleanedData.target_audience = targetAudience;
+          }
+        } else {
+          cleanedData[key as keyof Profile] = value;
+        }
+      });
+
+      console.log('Submitting cleaned formData:', JSON.stringify(cleanedData, null, 2));
+      await updateProfile(cleanedData);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while updating your profile');
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while updating your profile';
+      console.error('Update error:', err);
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -201,17 +245,16 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       {error && (
         <div className="mb-6 p-4 bg-red-100 text-red-700 rounded-lg flex items-center justify-between">
           <span>{error}</span>
-          <button onClick={() => setError('')} className="text-red-700">
+          <button onClick={() => setError(null)} className="text-red-700">
             <X className="w-5 h-5" />
           </button>
         </div>
       )}
       
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Profile Picture Upload */}
         <div className="mb-8">
           <ProfilePictureUpload
-            currentPictureUrl={formData.profile_picture_url}
+            currentPictureUrl={formData.profile_picture_url || ''}
             onUploadSuccess={handleProfilePictureSuccess}
           />
         </div>
@@ -229,7 +272,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   type="text"
                   id="company_name"
                   name="company_name"
-                  value={formData.company_name}
+                  value={formData.company_name || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 />
@@ -243,7 +286,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   type="url"
                   id="website"
                   name="website"
-                  value={formData.website}
+                  value={formData.website || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 />
@@ -256,7 +299,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                 <select
                   id="industry"
                   name="industry"
-                  value={formData.industry}
+                  value={formData.industry || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 >
@@ -282,7 +325,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                 <textarea
                   id="industry_details"
                   name="industry_details"
-                  value={formData.industry_details}
+                  value={formData.industry_details || ''}
                   onChange={handleInputChange}
                   rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
@@ -297,7 +340,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                 <select
                   id="company_size"
                   name="company_size"
-                  value={formData.company_size}
+                  value={formData.company_size || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 >
@@ -319,7 +362,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   type="text"
                   id="location"
                   name="location"
-                  value={formData.location}
+                  value={formData.location || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                   placeholder="City, Country"
@@ -340,7 +383,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   type="text"
                   id="contact_person_name"
                   name="contact_person_name"
-                  value={formData.contact_person_name}
+                  value={formData.contact_person_name || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 />
@@ -354,7 +397,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   type="text"
                   id="contact_person_position"
                   name="contact_person_position"
-                  value={formData.contact_person_position}
+                  value={formData.contact_person_position || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 />
@@ -368,7 +411,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   type="tel"
                   id="contact_person_phone"
                   name="contact_person_phone"
-                  value={formData.contact_person_phone}
+                  value={formData.contact_person_phone || ''}
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 />
@@ -382,7 +425,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   <input
                     type="url"
                     name="social_media_linkedin"
-                    value={(formData.social_media as any)?.linkedin || ''}
+                    value={formData.social_media?.linkedin || ''}
                     onChange={handleInputChange}
                     placeholder="LinkedIn URL"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
@@ -390,7 +433,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   <input
                     type="url"
                     name="social_media_twitter"
-                    value={(formData.social_media as any)?.twitter || ''}
+                    value={formData.social_media?.twitter || ''}
                     onChange={handleInputChange}
                     placeholder="Twitter URL"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
@@ -398,7 +441,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   <input
                     type="url"
                     name="social_media_instagram"
-                    value={(formData.social_media as any)?.instagram || ''}
+                    value={formData.social_media?.instagram || ''}
                     onChange={handleInputChange}
                     placeholder="Instagram URL"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
@@ -406,7 +449,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   <input
                     type="url"
                     name="social_media_facebook"
-                    value={(formData.social_media as any)?.facebook || ''}
+                    value={formData.social_media?.facebook || ''}
                     onChange={handleInputChange}
                     placeholder="Facebook URL"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
@@ -434,7 +477,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                       type="number"
                       id="annual_marketing_budget"
                       name="annual_marketing_budget"
-                      value={formData.annual_marketing_budget}
+                      value={formData.annual_marketing_budget ?? ''}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                     />
@@ -447,7 +490,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                     <input
                       type="text"
                       id="marketing_channels"
-                      value={formData.marketing_channels.join(', ')}
+                      value={(formData.marketing_channels || []).join(', ') || ''}
                       onChange={(e) => handleArrayInputChange(e, 'marketing_channels')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                       placeholder="Social Media, Email, Events, etc."
@@ -460,7 +503,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                     </label>
                     <textarea
                       id="previous_sponsorships"
-                      value={Array.isArray(formData.previous_sponsorships) ? formData.previous_sponsorships.join(', ') : formData.previous_sponsorships}
+                      value={(formData.previous_sponsorships || []).join(', ') || ''}
                       onChange={handlePreviousSponsorshipsChange}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
@@ -475,7 +518,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                     <input
                       type="text"
                       id="sponsorship_goals"
-                      value={formData.sponsorship_goals.join(', ')}
+                      value={(formData.sponsorship_goals || []).join(', ') || ''}
                       onChange={(e) => handleArrayInputChange(e, 'sponsorship_goals')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                       placeholder="Brand Awareness, Lead Generation, etc."
@@ -497,7 +540,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                         type="number"
                         id="min_age"
                         name="min_age"
-                        value={(formData.target_audience as any)?.age_range?.min || 18}
+                        value={formData.target_audience?.age_range?.min || 18}
                         onChange={handleInputChange}
                         min="0"
                         max="100"
@@ -512,7 +555,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                         type="number"
                         id="max_age"
                         name="max_age"
-                        value={(formData.target_audience as any)?.age_range?.max || 65}
+                        value={formData.target_audience?.age_range?.max || 65}
                         onChange={handleInputChange}
                         min="0"
                         max="100"
@@ -530,7 +573,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                         <input
                           type="checkbox"
                           value="male"
-                          checked={(formData.target_audience as any)?.genders?.includes('male')}
+                          checked={(formData.target_audience?.genders || []).includes('male')}
                           onChange={handleGenderChange}
                           className="mr-2"
                         />
@@ -540,7 +583,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                         <input
                           type="checkbox"
                           value="female"
-                          checked={(formData.target_audience as any)?.genders?.includes('female')}
+                          checked={(formData.target_audience?.genders || []).includes('female')}
                           onChange={handleGenderChange}
                           className="mr-2"
                         />
@@ -550,7 +593,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                         <input
                           type="checkbox"
                           value="other"
-                          checked={(formData.target_audience as any)?.genders?.includes('other')}
+                          checked={(formData.target_audience?.genders || []).includes('other')}
                           onChange={handleGenderChange}
                           className="mr-2"
                         />
@@ -566,7 +609,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                     <input
                       type="text"
                       id="interests"
-                      value={(formData.target_audience as any)?.interests?.join(', ') || ''}
+                      value={(formData.target_audience?.interests || []).join(', ') || ''}
                       onChange={handleInterestsChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                       placeholder="Technology, Fashion, Sports, etc."
@@ -580,7 +623,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                     <input
                       type="text"
                       id="locations"
-                      value={(formData.target_audience as any)?.locations?.join(', ') || ''}
+                      value={(formData.target_audience?.locations || []).join(', ') || ''}
                       onChange={handleLocationsChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                       placeholder="New York, London, Tokyo, etc."
