@@ -15,8 +15,8 @@ function validateEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
-export async function signUp(email: string, password: string, userType: Profile['user_type'], phoneNumber?: string) {
-  // Validate email and password
+export async function signUp(email: string, password: string, userType: Profile['user_type'], phoneNumber: string, name: string) {
+  // Validate inputs
   if (!validateEmail(email)) {
     toast.error('Invalid email format');
     throw new Error('Invalid email format');
@@ -25,6 +25,16 @@ export async function signUp(email: string, password: string, userType: Profile[
   if (!validatePassword(password)) {
     toast.error('Password must be at least 6 characters long');
     throw new Error('Password must be at least 6 characters long');
+  }
+
+  if (!name) {
+    toast.error('Name is required');
+    throw new Error('Name is required');
+  }
+
+  if (!phoneNumber || !/^\+[1-9]{1}[0-9]{3,14}$/.test(phoneNumber)) {
+    toast.error('Invalid phone number format');
+    throw new Error('Invalid phone number format');
   }
 
   // Special handling for admin signup
@@ -41,8 +51,8 @@ export async function signUp(email: string, password: string, userType: Profile[
 
     if (authError) {
       if (authError.message.includes('already registered')) {
-        toast.error(phoneNumber ? 'This phone number or email is already registered' : 'This email is already registered');
-        throw new Error(phoneNumber ? 'This phone number or email is already registered' : 'This email is already registered');
+        toast.error('This email is already registered');
+        throw new Error('This email is already registered');
       }
       toast.error(authError.message);
       throw authError;
@@ -58,8 +68,9 @@ export async function signUp(email: string, password: string, userType: Profile[
       .insert({
         id: authData.user.id,
         user_type: userType,
-        phone_number: phoneNumber,
+        contact_person_phone: phoneNumber,
         email,
+        company_name: name,
         created_at: new Date().toISOString(),
       });
 
@@ -186,21 +197,14 @@ export async function updateProfile(data: Partial<Profile>) {
       throw new Error('Not authenticated');
     }
 
-    // Clean the data to remove fields that shouldn't be updated
-    const updateData: Partial<Profile> = { ...data };
-    delete updateData.created_at;
-    delete updateData.id;
+    // Exclude fields that shouldn't be updated
+    const { created_at, updated_at, id, ...updateData } = data;
 
-    // Ensure updated_at is set
-    updateData.updated_at = new Date().toISOString();
-
-    // Validate and transform data to match schema
+    // Validate and transform data
     if (updateData.annual_marketing_budget !== undefined) {
-      if (updateData.annual_marketing_budget === '' || isNaN(Number(updateData.annual_marketing_budget))) {
-        updateData.annual_marketing_budget = null;
-      } else {
-        updateData.annual_marketing_budget = Number(updateData.annual_marketing_budget);
-      }
+      updateData.annual_marketing_budget = updateData.annual_marketing_budget === '' || isNaN(Number(updateData.annual_marketing_budget))
+        ? null
+        : Number(updateData.annual_marketing_budget);
     }
 
     // Ensure array fields are arrays
@@ -223,32 +227,19 @@ export async function updateProfile(data: Partial<Profile>) {
         .filter(Boolean);
     }
 
-    // Ensure JSONB fields are valid
+    // Handle JSONB fields
     if (updateData.social_media) {
-      const socialMedia = updateData.social_media;
-      if (
-        Object.values(socialMedia).every(
-          (value) => value === '' || value === null || value === undefined
-        )
-      ) {
+      if (Object.values(updateData.social_media).every(value => value === '' || value === null || value === undefined)) {
         updateData.social_media = null;
       }
     }
     if (updateData.target_audience) {
-      const targetAudience = updateData.target_audience;
+      const { age_range, genders, interests, locations } = updateData.target_audience;
       if (
-        !targetAudience.age_range ||
-        !targetAudience.genders ||
-        !targetAudience.interests ||
-        !targetAudience.locations
-      ) {
-        updateData.target_audience = null;
-      } else if (
-        targetAudience.genders.length === 0 &&
-        targetAudience.interests.length === 0 &&
-        targetAudience.locations.length === 0 &&
-        targetAudience.age_range.min === 0 &&
-        targetAudience.age_range.max === 0
+        (!age_range || (age_range.min === 0 && age_range.max === 0)) &&
+        (!genders || genders.length === 0) &&
+        (!interests || interests.length === 0) &&
+        (!locations || locations.length === 0)
       ) {
         updateData.target_audience = null;
       }
@@ -265,12 +256,19 @@ export async function updateProfile(data: Partial<Profile>) {
 
     if (error) {
       console.error('Supabase update error:', {
-        message: email,
+        message: error.message,
         details: error.details,
         hint: error.hint,
         code: error.code,
-        status,
+        status
       });
+      if (error.code === 'PGRST116') {
+        toast.error('Profile not found. Please contact support to set up your profile.');
+        throw new Error('Profile not found', { cause: error });
+      } else if (error.code === '42501') {
+        toast.error('Permission denied to update profile. Please contact support.');
+        throw new Error('Permission denied', { cause: error });
+      }
       toast.error('Error updating profile');
       throw error;
     }
@@ -279,7 +277,7 @@ export async function updateProfile(data: Partial<Profile>) {
     return updatedData;
   } catch (error) {
     if (error instanceof Error) {
-      toast.error('Failed to update profile');
+      toast.error(error.message || 'Failed to update profile');
       throw error;
     }
     toast.error('Failed to update profile');
