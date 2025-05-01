@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { updateProfile } from '../../lib/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
-import { Save, X, Camera, SquarePen } from 'lucide-react';
+import { Save, X, Camera, SquarePen, Crop } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import { Area } from 'react-easy-crop/types';
+import { CustomModal } from '../../components/CustomModal';
+import toast from 'react-hot-toast';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -41,7 +45,8 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       interests: [],
       locations: [],
       income_level: ''
-    }
+    },
+    phone_number_verified: profile?.phone_number_verified || false
   });
   const [previewImage, setPreviewImage] = useState<string | null>(formData.profile_picture_url || null);
   const [loading, setLoading] = useState(false);
@@ -49,6 +54,15 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
   const [emailVerificationPrompt, setEmailVerificationPrompt] = useState(false);
+  const [showOtpPopup, setShowOtpPopup] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -86,30 +100,97 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       setError('No file selected');
+      toast.error('No file selected');
       return;
     }
 
     if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
       setError('Profile picture must be JPEG, PNG, or GIF');
+      toast.error('Profile picture must be JPEG, PNG, or GIF');
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       setError('Profile picture must be less than 5MB');
+      toast.error('Profile picture must be less than 5MB');
       return;
     }
 
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageSrc(reader.result as string);
+      setShowCropper(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const resetFileInput = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    setImageSrc(null);
+    setShowCropper(false);
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+    setCroppedAreaPixels(null);
+  };
+
+  const handleCropComplete = useCallback((croppedArea: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const getCroppedImage = async (imageSrc: string, pixelCrop: Area): Promise<File> => {
+    const image = new Image();
+    image.src = imageSrc;
+    await new Promise((resolve) => (image.onload = resolve));
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get canvas context');
+
+    canvas.width = pixelCrop.width;
+    canvas.height = pixelCrop.height;
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height
+    );
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create blob'));
+          return;
+        }
+        const file = new File([blob], `cropped_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        resolve(file);
+      }, 'image/jpeg', 0.9);
+    });
+  };
+
+  const handleCropConfirm = async () => {
+    if (!imageSrc || !croppedAreaPixels || !user?.id) return;
+
     setUploading(true);
+    setLoading(true);
     try {
-      const imageUrl = URL.createObjectURL(file);
+      const croppedFile = await getCroppedImage(imageSrc, croppedAreaPixels);
+      const imageUrl = URL.createObjectURL(croppedFile);
       setPreviewImage(imageUrl);
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+      const fileExt = croppedFile.name.split('.').pop();
+      const fileName = `${user.id}_${Date.now()}.${fileExt}`;
       const filePath = `profile-pictures/${fileName}`;
 
       if (formData.profile_picture_url) {
@@ -120,19 +201,14 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         }
       }
 
-      const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsArrayBuffer(file);
-      });
+      const fileBuffer = await croppedFile.arrayBuffer();
 
       const { data, error: uploadError } = await supabase.storage
         .from('public')
         .upload(filePath, fileBuffer, {
           cacheControl: '3600',
           upsert: true,
-          contentType: file.type
+          contentType: croppedFile.type
         });
 
       if (uploadError) {
@@ -144,15 +220,33 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         throw new Error('Failed to generate public URL');
       }
 
+      console.log('New profile picture URL:', publicUrlData.publicUrl);
+
       setFormData(prev => ({
         ...prev,
         profile_picture_url: publicUrlData.publicUrl
       }));
+
+      const { error: dbError } = await supabase
+        .from('profiles')
+        .update({ profile_picture_url: publicUrlData.publicUrl })
+        .eq('id', user.id);
+
+      if (dbError) {
+        throw new Error(`Failed to update profile picture in database: ${dbError.message}`);
+      }
+
+      console.log('Profile picture updated in database:', publicUrlData.publicUrl);
+      toast.success('Profile picture updated successfully!');
+      resetFileInput();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload profile picture');
-      console.error('File upload error:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload profile picture';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error('File upload or database update error:', err);
     } finally {
       setUploading(false);
+      setLoading(false);
     }
   };
 
@@ -238,6 +332,92 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         ...formData,
         previous_sponsorships: e.target.value
       });
+    }
+  };
+
+  const sendOtp = async () => {
+    if (!formData.contact_person_phone) {
+      setError('Please enter a phone number');
+      toast.error('Please enter a phone number');
+      return;
+    }
+
+    setOtpLoading(true);
+
+    try {
+      const response = await fetch(import.meta.env.VITE_TWILIO_API_URL + '/api/twilio/send-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone: formData.contact_person_phone }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send OTP');
+      }
+
+      setShowOtpPopup(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send OTP');
+      toast.error(err instanceof Error ? err.message : 'Failed to send OTP');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!otp) {
+      setError('Please enter the OTP');
+      toast.error('Please enter the OTP');
+      return;
+    }
+
+    setOtpLoading(true);
+
+    try {
+      const response = await fetch(import.meta.env.VITE_TWILIO_API_URL + '/api/twilio/verify-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: formData.contact_person_phone,
+          code: otp,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Invalid OTP');
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          phone_number_verified: true,
+          contact_person_phone: formData.contact_person_phone
+        })
+        .eq('id', user?.id);
+
+      if (updateError) {
+        throw new Error('Failed to update profile: ' + updateError.message);
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        phone_number_verified: true,
+        contact_person_phone: formData.contact_person_phone
+      }));
+      setShowOtpPopup(false);
+      setOtp('');
+      setSuccess(true);
+      toast.success('Phone number verified successfully!');
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to verify OTP');
+      toast.error(err instanceof Error ? err.message : 'Failed to verify OTP');
+    } finally {
+      setOtpLoading(false);
     }
   };
 
@@ -396,6 +576,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
               onChange={handleFileChange}
               className="hidden"
               disabled={uploading}
+              ref={fileInputRef}
             />
           </div>
         </div>
@@ -560,17 +741,30 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
 
               <div>
                 <label htmlFor="contact_person_phone" className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
+                  Phone Number {formData.phone_number_verified && <span className="text-green-600 text-xs">(Verified)</span>}
                 </label>
-                <input
-                  type="tel"
-                  id="contact_person_phone"
-                  name="contact_person_phone"
-                  value={formData.contact_person_phone}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                  placeholder="+1234567890"
-                />
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="tel"
+                    id="contact_person_phone"
+                    name="contact_person_phone"
+                    value={formData.contact_person_phone}
+                    onChange={handleInputChange}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    placeholder="+1234567890"
+                    disabled={formData.phone_number_verified}
+                  />
+                  {!formData.phone_number_verified && (
+                    <button
+                      type="button"
+                      onClick={sendOtp}
+                      disabled={otpLoading || !formData.contact_person_phone}
+                      className="px-3 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50"
+                    >
+                      {otpLoading ? 'Sending...' : 'Verify'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -832,6 +1026,106 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           </button>
         </div>
       </form>
+
+      <CustomModal
+        isOpen={showOtpPopup}
+        onClose={() => setShowOtpPopup(false)}
+        title="Verify Phone Number"
+        customStyles={{ maxWidth: '28rem', height: '100px' }}
+      >
+        <div>
+          <p className="text-sm text-gray-600 mb-4">
+            An OTP has been sent to {formData.contact_person_phone}. Please enter it below.
+          </p>
+          <input
+            type="text"
+            value={otp}
+            onChange={(e) => setOtp(e.target.value)}
+            placeholder="Enter OTP"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] mb-4"
+          />
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => setShowOtpPopup(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={verifyOtp}
+              disabled={otpLoading}
+              className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50"
+            >
+              {otpLoading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+          </div>
+        </div>
+      </CustomModal>
+
+      {imageSrc && (
+        <CustomModal
+          isOpen={showCropper}
+          onClose={resetFileInput}
+          title="Crop Profile Picture"
+          customStyles={{ maxWidth: '32rem', height: 'auto' }}
+        >
+          <div>
+            <div className="relative w-full h-80">
+              <Cropper
+                image={imageSrc}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onZoomChange={setZoom}
+                onCropComplete={handleCropComplete}
+              />
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Zoom</label>
+              <input
+                type="range"
+                min={1}
+                max={3}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoom(parseFloat(e.target.value))}
+                className="w-full"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button
+                onClick={resetFileInput}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCropConfirm}
+                disabled={uploading}
+                className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50 flex items-center"
+              >
+                {uploading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Crop className="w-4 h-4 mr-2" />
+                    Crop & Upload
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </CustomModal>
+      )}
     </div>
   );
 }
