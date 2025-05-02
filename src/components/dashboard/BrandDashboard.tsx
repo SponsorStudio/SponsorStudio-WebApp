@@ -563,7 +563,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
               </button>
             </div>
           ) : (
-            <div className="min-h-[400px] sm:min-h-[500px] bg-white rounded-lg shadow-sm overflow-hidden max-w-full">
+            <div className="min-h-[400px] sm:min-h-[500px] bg-white rounded-lg shadow-sm overflow-hidden max-w-full pb-14 sm:pb-0">
               {currentOpportunity ? (
                 <div className="flex flex-col">
                   {currentOpportunity.media_urls && currentOpportunity.media_urls.length > 0 ? (
@@ -681,7 +681,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                   </div>
                 </div>
               ) : (
-                <div className="min-h-[400px] sm:min-h-[500px] flex items-center justify-center">
+                <div className="min-h-[400px] sm:min-h-[500px] flex items-center justify-center pb-14 sm:pb-0">
                   <div className="text-center p-6">
                     <Search className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
                     <h3 className="text-base sm:text-xl font-medium text-gray-700 mb-2">No more events available</h3>
@@ -703,7 +703,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       )}
 
       {activeTab === 'matches' && (
-        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6">
+        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6 pb-14 sm:pb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">Your Matches</h2>
           
           {matches.length === 0 ? (
