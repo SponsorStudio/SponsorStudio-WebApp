@@ -145,11 +145,11 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
           </div>
 
           {/* Card layout for mobile screens */}
-          <div className="block sm:hidden space-y-6 pb-8">
+          <div className="block sm:hidden space-y-6">
             {scheduledMeetings.map((meeting, index) => (
               <div
                 key={meeting.id}
-                className={`border border-gray-100 rounded-xl p-5 max-w-full overflow-hidden ${
+                className={`border border-gray-200 rounded-xl p-5 max-w-full overflow-hidden ${
                   index === scheduledMeetings.length - 1 ? 'mb-4' : ''
                 }`}
               >
@@ -216,7 +216,7 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
         {content}
       </div>
       {/* Mobile view without outer container */}
-      <div className="block sm:hidden">
+      <div className="block sm:hidden pb-14 sm:pb-0">
         {content}
       </div>
     </>

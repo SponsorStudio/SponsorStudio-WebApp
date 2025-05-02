@@ -59,6 +59,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const [priceRangeFilter, setPriceRangeFilter] = useState<string>('');
   const [locationSearch, setLocationSearch] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showFullDescription, setShowFullDescription] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -267,6 +268,10 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     setSelectedCategory('');
     setLocationFilter('');
     setShowFilters(false);
+    setAdTypeFilter('');
+    setPriceRangeFilter('');
+    setLocationSearch('');
+    setSearchQuery('');
   };
 
   const handleProfileUpdate = () => {
@@ -279,7 +284,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const acceptedMatches = userMatches.filter(match => match.status === 'accepted');
   const rejectedMatches = userMatches.filter(match => match.status === 'rejected');
 
-  // Function to generate Google Calendar event link with "Notes:" removed
+  // Function to generate Google Calendar event link
   const generateGoogleCalendarLink = (match: Match) => {
     const event = {
       title: `Meeting for ${match.opportunities?.title || 'Opportunity'}`,
@@ -314,25 +319,25 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2B4B9B]"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#2B4B9B]"></div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="max-w-full overflow-x-hidden">
       {!profile?.company_name && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
           <div className="flex items-start">
-            <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 mr-3" />
+            <AlertCircle className="w-4 h-4 text-yellow-400 mt-0.5 mr-2" />
             <div>
-              <h3 className="text-sm font-medium text-yellow-800">Complete your profile</h3>
-              <p className="mt-1 text-sm text-yellow-700">
+              <h3 className="text-xs font-medium text-yellow-800">Complete your profile</h3>
+              <p className="mt-1 text-xs text-yellow-700">
                 Please complete your profile to get personalized opportunities and better matches.
               </p>
               <button
                 onClick={handleProfileUpdate}
-                className="mt-2 text-sm font-medium text-yellow-800 hover:text-yellow-900"
+                className="mt-1 text-xs font-medium text-yellow-800 hover:text-yellow-900"
               >
                 Update Profile →
               </button>
@@ -341,38 +346,36 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Brand Dashboard</h1>
-        <div className="flex space-x-2">
-          {activeTab === 'discover' && (
-            <>
-              <button 
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-              </button>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search location..."
-                  value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
-                  className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
-                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-              </div>
-            </>
-          )}
-        </div>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Brand Dashboard</h1>
+        {activeTab === 'discover' && (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-2 mt-4 sm:mt-0">
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center justify-center space-x-1 px-2 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-xs sm:text-sm"
+            >
+              <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span>Filters</span>
+            </button>
+            <div className="relative w-full sm:w-auto">
+              <input
+                type="text"
+                placeholder="Search location..."
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
+              />
+              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 absolute left-2 top-1/2 transform -translate-y-1/2" />
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className="mb-6 border-b border-gray-200">
-        <div className="flex space-x-8">
+      <div className="mb-4 border-b border-gray-200">
+        <div className="flex flex-wrap gap-4 sm:gap-8">
           <button
             onClick={() => setActiveTab('discover')}
-            className={`py-2 px-1 -mb-px font-medium text-sm ${
+            className={`py-2 px-1 -mb-px font-medium text-xs sm:text-sm ${
               activeTab === 'discover'
                 ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
                 : 'text-gray-500 hover:text-gray-700'
@@ -382,14 +385,14 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
           </button>
           <button
             onClick={() => setActiveTab('matches')}
-            className={`py-2 px-1 -mb-px font-medium text-sm ${
+            className={`py-2 px-1 -mb-px font-medium text-xs sm:text-sm ${
               activeTab === 'matches'
                 ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
             Your Matches {pendingMatches.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+              <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-yellow-100 text-yellow-800 rounded-full">
                 {pendingMatches.length} pending
               </span>
             )}
@@ -398,41 +401,41 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       </div>
 
       {showMatchSuccess && matchedOpportunity && (
-        <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg">
+        <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">
           <div className="flex items-start">
             <div className="flex-shrink-0 mt-0.5">
-              <svg className="h-5 w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-4 w-4 sm:h-5 sm:w-5 text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium">Interest expressed successfully!</h3>
-              <div className="mt-2 text-sm">
+            <div className="ml-2 sm:ml-3">
+              <h3 className="text-xs sm:text-sm font-medium">Interest expressed successfully!</h3>
+              <div className="mt-1 sm:mt-2 text-xs sm:text-sm">
                 <p>You've expressed interest in "{matchedOpportunity.title}". The event organizer has been notified and will contact you soon.</p>
                 
                 {matchedOpportunity.calendly_link && (
-                  <p className="mt-2">
+                  <p className="mt-1 sm:mt-2">
                     <a 
                       href={matchedOpportunity.calendly_link} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-green-700 hover:text-green-900 font-medium"
+                      className="inline-flex items-center text-green-700 hover:text-green-900 font-medium text-xs sm:text-sm"
                     >
-                      <Calendar className="w-4 h-4 mr-1" />
+                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                       Schedule a meeting
                     </a>
                   </p>
                 )}
                 
                 {matchedOpportunity.sponsorship_brochure_url && (
-                  <p className="mt-2">
+                  <p className="mt-1 sm:mt-2">
                     <a 
                       href={matchedOpportunity.sponsorship_brochure_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="inline-flex items-center text-green-700 hover:text-green-900 font-medium"
+                      className="inline-flex items-center text-green-700 hover:text-green-900 font-medium text-xs sm:text-sm"
                     >
-                      <FileText className="w-4 h-4 mr-1" />
+                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                       View sponsorship brochure
                     </a>
                   </p>
@@ -446,31 +449,25 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       {activeTab === 'discover' && (
         <>
           {showFilters && (
-            <div className="bg-white p-4 rounded-lg shadow-sm mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-medium">Filter Opportunities</h3>
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm mb-4 max-w-full overflow-x-hidden">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 className="font-medium text-xs sm:text-sm">Filter Opportunities</h3>
                 <button 
-                  onClick={() => {
-                    resetFilters();
-                    setSearchQuery('');
-                    setLocationSearch('');
-                    setAdTypeFilter('');
-                    setPriceRangeFilter('');
-                  }}
-                  className="text-sm text-[#2B4B9B] hover:text-[#1a2f61]"
+                  onClick={resetFilters}
+                  className="text-xs sm:text-sm text-[#2B4B9B] hover:text-[#1a2f61]"
                 >
                   Reset Filters
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Category
                   </label>
                   <select
                     value={selectedCategory}
                     onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
                   >
                     <option value="">All Categories</option>
                     {categories.map((category) => (
@@ -482,13 +479,13 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Advertisement Type
                   </label>
                   <select
                     value={adTypeFilter}
                     onChange={(e) => setAdTypeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
                   >
                     <option value="">All Types</option>
                     <option value="digital">Digital Displays</option>
@@ -499,13 +496,13 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Price Range
                   </label>
                   <select
                     value={priceRangeFilter}
                     onChange={(e) => setPriceRangeFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
                   >
                     <option value="">Any Budget</option>
                     <option value="0-10000">Under ₹10,000</option>
@@ -518,7 +515,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                     Location
                   </label>
                   <input
@@ -526,13 +523,13 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                     value={locationSearch}
                     onChange={(e) => setLocationSearch(e.target.value)}
                     placeholder="Enter location..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
                   />
                 </div>
               </div>
 
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+              <div className="mt-3 sm:mt-4">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   Search
                 </label>
                 <div className="relative">
@@ -541,36 +538,36 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search by title or description..."
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
                   />
-                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2" />
                 </div>
               </div>
             </div>
           )}
 
           {opportunities.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <Search className="w-8 h-8 text-gray-400" />
+            <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
               </div>
-              <h3 className="text-xl font-medium text-gray-800 mb-2">No events found</h3>
-              <p className="text-gray-600 mb-4">
+              <h3 className="text-base sm:text-xl font-medium text-gray-800 mb-2">No events found</h3>
+              <p className="text-xs sm:text-gray-600 mb-3 sm:mb-4">
                 We couldn't find any events matching your criteria. Try adjusting your filters.
               </p>
               <button
                 onClick={resetFilters}
-                className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
               >
                 Reset Filters
               </button>
             </div>
           ) : (
-            <div className="relative h-[600px] bg epinephrine rounded-lg shadow-sm overflow-hidden">
+            <div className="min-h-[400px] sm:min-h-[500px] bg-white rounded-lg shadow-sm overflow-hidden max-w-full pb-14 sm:pb-0">
               {currentOpportunity ? (
-                <div className="h-full flex flex-col">
+                <div className="flex flex-col">
                   {currentOpportunity.media_urls && currentOpportunity.media_urls.length > 0 ? (
-                    <div className="h-1/2 bg-gray-200">
+                    <div className="h-48 sm:h-64 bg-gray-200">
                       <img 
                         src={currentOpportunity.media_urls[0]} 
                         alt={currentOpportunity.title}
@@ -578,26 +575,26 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                       />
                     </div>
                   ) : (
-                    <div className="h-1/2 bg-gray-200 flex items-center justify-center">
-                      <p className="text-gray-500">No image available</p>
+                    <div className="h-48 sm:h-64 bg-gray-200 flex items-center justify-center">
+                      <p className="text-gray-500 text-xs sm:text-sm">No image available</p>
                     </div>
                   )}
                   
-                  <div className="flex-1 p-6 overflow-y-auto">
-                    <h2 className="text-2xl font-bold text-gray-800 mb-2">{currentOpportunity.title}</h2>
+                  <div className="p-4 sm:p-6">
+                    <h2 className="text-lg sm:text-2xl font-bold text-gray-800 mb-2">{currentOpportunity.title}</h2>
                     
-                    <div className="flex items-center text-gray-600 mb-4">
-                      <MapPin className="w-4 h-4 mr-1" />
+                    <div className="flex items-center text-gray-600 mb-3 sm:mb-4 text-xs sm:text-sm">
+                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                       <span>{currentOpportunity.location}</span>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
                       {currentOpportunity.start_date && (
                         <div className="flex items-center">
-                          <Calendar className="w-4 h-4 text-gray-500 mr-2" />
+                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 mr-1 sm:mr-2" />
                           <div>
-                            <p className="text-sm text-gray-500">Date</p>
-                            <p className="font-medium">
+                            <p className="text-xs sm:text-sm text-gray-500">Date</p>
+                            <p className="font-medium text-xs sm:text-sm">
                               {currentOpportunity.end_date &&
                               new Date(currentOpportunity.start_date).toDateString() ===
                               new Date(currentOpportunity.end_date).toDateString()
@@ -614,10 +611,10 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                       
                       {currentOpportunity.price_range && (
                         <div className="flex items-center">
-                          <DollarSign className="w-4 h-4 text-gray-500 mr-2" />
+                          <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 mr-1 sm:mr-2" />
                           <div>
-                            <p className="text-sm text-gray-500">Budget</p>
-                            <p className="font-medium">
+                            <p className="text-xs sm:text-sm text-gray-500">Budget</p>
+                            <p className="font-medium text-xs sm:text-sm">
                               ₹{currentOpportunity.price_range.min} - ₹{currentOpportunity.price_range.max}
                             </p>
                           </div>
@@ -625,51 +622,75 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                       )}
                     </div>
 
-                    <div className="flex flex-wrap gap-2 mb-4">
+                    <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
                       {currentOpportunity.calendly_link && (
-                        <div className="flex items-center text-sm text-[#2B4B9B]">
-                          <Calendar className="w-4 h-4 mr-1" />
+                        <div className="flex items-center text-xs sm:text-sm text-[#2B4B9B]">
+                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                           <span>Calendly Available</span>
                         </div>
                       )}
                       
                       {currentOpportunity.sponsorship_brochure_url && (
-                        <div className="flex items-center text-sm text-[#2B4B9B]">
-                          <FileText className="w-4 h-4 mr-1" />
+                        <div className="flex items-center text-xs sm:text-sm text-[#2B4B9B]">
+                          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                           <span>Brochure Available</span>
                         </div>
                       )}
                     </div>
                     
-                    <p className="text-gray-600 mb-6">{currentOpportunity.description}</p>
+                    <div className="text-gray-600 mb-4 sm:mb-6 text-xs sm:text-sm">
+                      {currentOpportunity.description && currentOpportunity.description.length > 100 && !showFullDescription ? (
+                        <>
+                          {currentOpportunity.description.slice(0, 100)}...
+                          <button
+                            onClick={() => setShowFullDescription(true)}
+                            className="text-[#2B4B9B] hover:text-[#1a2f61] text-xs sm:text-sm font-medium ml-1"
+                          >
+                            Read more
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {currentOpportunity.description}
+                          {currentOpportunity.description && currentOpportunity.description.length > 100 && (
+                            <button
+                              onClick={() => setShowFullDescription(false)}
+                              className="text-[#2B4B9B] hover:text-[#1a2f61] text-xs sm:text-sm font-medium ml-1"
+                            >
+                              Read less
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                     
-                    <div className="flex justify-center space-x-4">
+                    <div className="flex flex-row justify-center gap-2 sm:gap-4">
                       <button
                         onClick={() => handleReject(currentOpportunity.id)}
-                        className="flex items-center justify-center w-12 h-12 rounded-full bg-red-100 hover:bg-red-200 transition-colors"
+                        className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-red-100 hover:bg-red-200 transition-colors"
                       >
-                        <X className="w-6 h-6 text-red-600" />
+                        <X className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                       </button>
                       <button
                         onClick={() => handleLike(currentOpportunity.id)}
-                        className="flex items-center justify-center w-12 h-12 rounded-full bg-green-100 hover:bg-green-200 transition-colors"
+                        className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100 hover:bg-green-200 transition-colors"
                       >
-                        <Heart className="w-6 h-6 text-green-600" />
+                        <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                       </button>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center p-8">
-                    <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-xl font-medium text-gray-700 mb-2">No more events available</h3>
-                    <p className="text-gray-500 mb-4">
+                <div className="min-h-[400px] sm:min-h-[500px] flex items-center justify-center pb-14 sm:pb-0">
+                  <div className="text-center p-6">
+                    <Search className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                    <h3 className="text-base sm:text-xl font-medium text-gray-700 mb-2">No more events available</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
                       You've gone through all available events matching your criteria.
                     </p>
                     <button
                       onClick={resetFilters}
-                      className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
                     >
                       Reset Filters
                     </button>
@@ -682,69 +703,69 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       )}
 
       {activeTab === 'matches' && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-6">Your Matches</h2>
+        <div className="bg-white rounded-lg shadow-sm p-3 sm:p-6 pb-14 sm:pb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-800 mb-4 sm:mb-6">Your Matches</h2>
           
           {matches.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <Heart className="w-8 h-8 text-gray-400" />
+            <div className="text-center py-6 sm:py-8">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
               </div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">No matches yet</h3>
-              <p className="text-gray-500 mb-4">
+              <h3 className="text-base sm:text-lg font-medium text-gray-700 mb-2">No matches yet</h3>
+              <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
                 When you express interest in events, they'll appear here.
               </p>
               <button
                 onClick={() => setActiveTab('discover')}
-                className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
               >
                 Discover Events
               </button>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {pendingMatches.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
+                  <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-2 sm:mb-3 flex items-center">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-yellow-400 rounded-full mr-1.5 sm:mr-2"></span>
                     Pending Response
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {pendingMatches.map(match => (
-                      <div key={match.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <div>
+                      <div key={match.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between">
+                          <div className="mb-2 sm:mb-0">
                             <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                              <h4 className="font-medium text-gray-800 text-xs sm:text-sm">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                              <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-yellow-100 text-yellow-800 rounded-full">
                                 Pending
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
                               Interested in: <span className="font-medium">{(match as any).opportunities?.title || 'Unknown Event'}</span>
                             </p>
                             {match.profiles?.industry && (
-                              <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
+                              <p className="text-xs sm:text-sm text-gray-600">Industry: {match.profiles.industry}</p>
                             )}
                             {match.profiles?.contact_person_name && (
-                              <p className="text-sm text-gray-600">
+                              <p className="text-xs sm:text-sm text-gray-600">
                                 Contact: {match.profiles.contact_person_name}
                                 {match.profiles.contact_person_phone ? ` (${match.profiles.contact_person_phone})` : ''}
                               </p>
                             )}
-                            <p className="text-sm text-gray-600">
+                            <p className="text-xs sm:text-sm text-gray-600">
                               Sent: {new Date(match.created_at).toLocaleDateString()}
                             </p>
                           </div>
-                          <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2">
                             {match.opportunities?.sponsorship_brochure_url && (
                               <a 
                                 href={match.opportunities.sponsorship_brochure_url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center"
+                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center text-xs sm:text-sm"
                               >
-                                <FileText className="w-4 h-4 mr-1" />
+                                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                                 View Brochure
                               </a>
                             )}
@@ -758,39 +779,39 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
 
               {acceptedMatches.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                  <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-2 sm:mb-3 flex items-center">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full mr-1.5 sm:mr-2"></span>
                     Accepted Matches
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {acceptedMatches.map(match => (
-                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <div>
+                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between">
+                          <div className="mb-2 sm:mb-0">
                             <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                              <h4 className="font-medium text-gray-800 text-xs sm:text-sm">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                              <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-green-100 text-green-800 rounded-full">
                                 Accepted
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
                               Event: <span className="font-medium">{(match as any).opportunities?.title || 'Unknown Event'}</span>
                             </p>
                             {match.meeting_scheduled_at && (
-                              <p className="text-sm text-gray-600">
+                              <p className="text-xs sm:text-sm text-gray-600">
                                 Meeting scheduled for: {new Date(match.meeting_scheduled_at).toLocaleString()}
                               </p>
                             )}
                           </div>
-                          <div className="mt-3 md:mt-0 flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2">
                             {match.meeting_link && (
                               <a 
                                 href={match.meeting_link} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center"
+                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center text-xs sm:text-sm"
                               >
-                                <Calendar className="w-4 h-4 mr-1" />
+                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                                 Join Meeting
                               </a>
                             )}
@@ -799,9 +820,9 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                                 href={match.opportunities.sponsorship_brochure_url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center"
+                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center text-xs sm:text-sm"
                               >
-                                <FileText className="w-4 h-4 mr-1" />
+                                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                                 View Brochure
                               </a>
                             )}
@@ -810,9 +831,9 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                                 href={generateGoogleCalendarLink(match)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 flex items-center"
+                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 flex items-center text-xs sm:text-sm"
                               >
-                                <Calendar className="w-4 h-4 mr-1" />
+                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
                                 Add to Calendar
                               </a>
                             )}
@@ -826,26 +847,26 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
 
               {rejectedMatches.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
+                  <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-2 sm:mb-3 flex items-center">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-red-400 rounded-full mr-1.5 sm:mr-2"></span>
                     Rejected Matches
                   </h3>
-                  <div className="space-y-3">
+                  <div className="space-y-2 sm:space-y-3">
                     {rejectedMatches.map(match => (
-                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between">
+                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between">
                           <div>
                             <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">
+                              <h4 className="font-medium text-gray-800 text-xs sm:text-sm">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                              <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-red-100 text-red-800 rounded-full">
                                 Rejected
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
                               Event: <span className="font-medium">{(match as any).opportunities?.title || 'Unknown Event'}</span>
                             </p>
                             {match.notes && (
-                              <p className="text-sm text-gray-600 mt-1">
+                              <p className="text-xs sm:text-sm text-gray-600 mt-1">
                                 Reason: {match.notes}
                               </p>
                             )}

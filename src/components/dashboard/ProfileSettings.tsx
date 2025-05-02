@@ -41,7 +41,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     },
     target_audience: profile?.target_audience || {
       age_range: { min: 18, max: 65 },
-      genders: [],
+      genders: Array.isArray(profile?.target_audience?.genders) ? profile?.target_audience?.genders[0] || '' : profile?.target_audience?.genders || '',
       interests: [],
       locations: [],
       income_level: ''
@@ -276,21 +276,12 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   };
 
   const handleGenderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value, checked } = e.target;
-    const currentGenders = [...((formData.target_audience as any).genders || [])];
-
-    if (checked && !currentGenders.includes(value)) {
-      currentGenders.push(value);
-    } else if (!checked && currentGenders.includes(value)) {
-      const index = currentGenders.indexOf(value);
-      currentGenders.splice(index, 1);
-    }
-
+    const { value } = e.target;
     setFormData({
       ...formData,
       target_audience: {
         ...formData.target_audience as any,
-        genders: currentGenders
+        genders: value
       }
     });
   };
@@ -484,7 +475,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const isBrand = profile?.user_type === 'brand' || profile?.user_type === 'agency';
 
   return (
-    <div className="bg-white rounded-lg shadow p-6 relative">
+    <div className="bg-white rounded-lg shadow p-6 pb-14 sm:pb-6 relative">
       <button
         onClick={handleLogout}
         className="block sm:hidden absolute top-2 right-2 p-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] flex items-center"
@@ -945,9 +936,10 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                     <div className="flex space-x-4">
                       <label className="inline-flex items-center">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="gender"
                           value="male"
-                          checked={(formData.target_audience as any)?.genders?.includes('male')}
+                          checked={(formData.target_audience as any)?.genders === 'male'}
                           onChange={handleGenderChange}
                           className="mr-2"
                         />
@@ -955,9 +947,10 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                       </label>
                       <label className="inline-flex items-center">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="gender"
                           value="female"
-                          checked={(formData.target_audience as any)?.genders?.includes('female')}
+                          checked={(formData.target_audience as any)?.genders === 'female'}
                           onChange={handleGenderChange}
                           className="mr-2"
                         />
@@ -965,9 +958,10 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                       </label>
                       <label className="inline-flex items-center">
                         <input
-                          type="checkbox"
+                          type="radio"
+                          name="gender"
                           value="other"
-                          checked={(formData.target_audience as any)?.genders?.includes('other')}
+                          checked={(formData.target_audience as any)?.genders === 'other'}
                           onChange={handleGenderChange}
                           className="mr-2"
                         />
