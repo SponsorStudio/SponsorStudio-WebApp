@@ -679,7 +679,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-6 rounded-lg shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-medium text-gray-800">Total Events</h3>
@@ -765,12 +765,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       </div>
 
       {showForm && (
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-800 mb-4">
             {isEditing ? 'Edit Event' : 'Create New Event'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Title
@@ -819,7 +819,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               ></textarea>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Location
@@ -859,7 +859,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Reach (Audience Size)
@@ -946,7 +946,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                       <li key={index}>{file.name}</li>
                     ))}
                   </ul>
-                  <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {mediaPreviews.map((preview, index) => (
                       <div key={index} className="relative">
                         {formData.media_files![index].type.startsWith('image/') ? (
@@ -1081,11 +1081,11 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                 const isExpanded = expandedMatches[opportunity.id] || false;
                 return (
                   <div key={opportunity.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <div className="flex items-center mb-1">
-                            <h3 className="text-xl font-bold text-gray-800 mr-2">{opportunity.title}</h3>
+                    <div className="p-4 sm:p-6">
+                      <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
+                        <div className="mb-4 sm:mb-0">
+                          <div className="flex flex-wrap items-center mb-1">
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mr-2">{opportunity.title}</h3>
                             <span className={`px-2 py-0.5 text-xs rounded-full ${
                               opportunity.status === 'active' 
                                 ? 'bg-green-100 text-green-800' 
@@ -1157,16 +1157,16 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                         </div>
                       )}
                       
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div className="flex items-center">
-                          <MapPin className="w-4 h-4 text-gray-500 mr-2" />
-                          <span className="text-sm text-gray-600">{opportunity.location}</span>
+                          <MapPin className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                          <span className="text-sm text-gray-600 truncate">{opportunity.location}</span>
                         </div>
                         
                         {opportunity.start_date && (
                           <div className="flex items-center">
-                            <Calendar className="w-4 h-4 text-gray-500 mr-2" />
-                            <span className="text-sm text-gray-600">
+                            <Calendar className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600 truncate">
                               {opportunity.end_date &&
                               new Date(opportunity.start_date).toDateString() ===
                               new Date(opportunity.end_date).toDateString()
@@ -1182,15 +1182,15 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                         
                         {opportunity.reach && (
                           <div className="flex items-center">
-                            <Users className="w-4 h-4 text-gray-500 mr-2" />
+                            <Users className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
                             <span className="text-sm text-gray-600">{opportunity.reach.toLocaleString()} reach</span>
                           </div>
                         )}
                         
                         {opportunity.price_range && (
                           <div className="flex items-center">
-                            <DollarSign className="w-4 h-4 text-gray-500 mr-2" />
-                            <span className="text-sm text-gray-600">
+                            <DollarSign className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                            <span className="text-sm text-gray-600 truncate">
                               {typeof opportunity.price_range === 'object' 
                                 ? `₹${opportunity.price_range.min} - ₹${opportunity.price_range.max}`
                                 : 'Contact for pricing'}
@@ -1219,13 +1219,13 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                       {opportunity.media_urls && opportunity.media_urls.length > 0 && (
                         <div className="mt-4">
                           <h4 className="text-sm font-medium text-gray-700">Media:</h4>
-                          <div className="flex gap-2 mt-2">
+                          <div className="flex flex-wrap gap-2 mt-2">
                             {opportunity.media_urls.map((url, index) => (
                               <img
                                 key={index}
                                 src={url}
                                 alt={`Media ${index + 1}`}
-                                className="w-24 h-24 object-cover rounded"
+                                className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
                                 onError={(e) => console.error('Error loading image:', url)}
                               />
                             ))}
@@ -1234,8 +1234,8 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                       )}
                       <p className="text-gray-600 mb-4">{opportunity.description}</p>
                       
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                        <div className="flex items-center mb-2 sm:mb-0">
                           <span className="text-sm font-medium text-gray-700 mr-2">
                             {opportunityMatches.length} {opportunityMatches.length === 1 ? 'match' : 'matches'}
                           </span>
@@ -1258,8 +1258,8 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                         <div className="space-y-3">
                           {opportunityMatches.map((match) => (
                             <div key={match.id} className="bg-white p-3 rounded border border-gray-200">
-                              <div className="flex justify-between items-center">
-                                <div>
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                <div className="mb-2 sm:mb-0">
                                   <p className="font-medium">{match.profiles?.company_name || 'Unknown Company'}</p>
                                   <p className="text-sm text-gray-600">
                                     Status: <span className={`font-medium ${
@@ -1271,13 +1271,13 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                     </span>
                                   </p>
                                   {match.profiles?.contact_person_name && (
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-sm text-gray-600 truncate">
                                       Contact: {match.profiles.contact_person_name}
                                       {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
                                     </p>
                                   )}
                                   {match.profiles?.email && (
-                                    <p className="text-sm text-gray-600">
+                                    <p className="text-sm text-gray-600 truncate">
                                       Email: {match.profiles.email}
                                     </p>
                                   )}
@@ -1330,7 +1330,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       )}
 
       {activeTab === 'matches' && (
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
           <h2 className="text-xl font-bold text-gray-800 mb-6">Brand Matches</h2>
           <button
             onClick={fetchMatches}
@@ -1361,8 +1361,8 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   <div className="space-y-3">
                     {pendingMatches.map(match => (
                       <div key={match.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <div className="flex justify-between">
-                          <div>
+                        <div className="flex flex-col sm:flex-row justify-between">
+                          <div className="mb-2 sm:mb-0">
                             <div className="flex items-center">
                               <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
                               <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
@@ -1431,8 +1431,8 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   <div className="space-y-3">
                     {acceptedMatches.map(match => (
                       <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
+                        <div className="flex flex-col sm:flex-row justify-between items-start">
+                          <div className="mb-2 sm:mb-0">
                             <div className="flex items-center">
                               <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
                               <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
@@ -1506,7 +1506,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   <div className="space-y-3">
                     {rejectedMatches.map(match => (
                       <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4 opacity-70">
-                        <div className="flex justify-between">
+                        <div className="flex flex-col sm:flex-row justify-between">
                           <div>
                             <div className="flex items-center">
                               <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>

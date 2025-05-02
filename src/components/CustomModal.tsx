@@ -54,7 +54,7 @@ export const CustomModal: React.FC<CustomModalProps> = ({
   const defaultStyles: React.CSSProperties = {
     width: '100%',
     maxWidth: '32rem',
-    minHeight: '15.4rem',
+    minHeight: '10rem',
     maxHeight: '90vh',
     overflowY: 'auto',
   };
