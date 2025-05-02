@@ -12,12 +12,12 @@ import {
   Users, 
   DollarSign,
   FileText,
-  Link as LinkIcon,
   BarChart3,
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  Video
 } from 'lucide-react';
 import { sendMatchNotification } from '../../lib/email';
 import type { Database } from '../../lib/database.types';
@@ -506,7 +506,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                   >
                     <option value="">Any Budget</option>
                     <option value="0-10000">Under ₹10,000</option>
-                    <option value="10000-50000">₹10,000 - ₹50,000</option>
+                    <option value="10000-50000"> ₹10,000 - ₹50,000</option>
                     <option value="50000-100000">₹50,000 - ₹1,00,000</option>
                     <option value="100000-500000">₹1,00,000 - ₹5,00,000</option>
                     <option value="500000-1000000">₹5,00,000 - ₹10,00,000</option>
@@ -656,7 +656,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                             <button
                               onClick={() => setShowFullDescription(false)}
                               className="text-[#2B4B9B] hover:text-[#1a2f61] text-xs sm:text-sm font-medium ml-1"
-                            >
+                              >
                               Read less
                             </button>
                           )}
@@ -779,64 +779,68 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
 
               {acceptedMatches.length > 0 && (
                 <div>
-                  <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-2 sm:mb-3 flex items-center">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-3 sm:mb-4 flex items-center">
                     <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full mr-1.5 sm:mr-2"></span>
                     Accepted Matches
                   </h3>
-                  <div className="space-y-2 sm:space-y-3">
+                  <div className="space-y-3 sm:space-y-4">
                     {acceptedMatches.map(match => (
-                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
-                        <div className="flex flex-col sm:flex-row sm:justify-between">
-                          <div className="mb-2 sm:mb-0">
-                            <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800 text-xs sm:text-sm">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-1 sm:ml-2 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-green-100 text-green-800 rounded-full">
-                                Accepted
-                              </span>
-                            </div>
-                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                              Event: <span className="font-medium">{(match as any).opportunities?.title || 'Unknown Event'}</span>
-                            </p>
-                            {match.meeting_scheduled_at && (
-                              <p className="text-xs sm:text-sm text-gray-600">
-                                Meeting scheduled for: {new Date(match.meeting_scheduled_at).toLocaleString()}
+                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 sm:gap-6">
+                            <div className="space-y-2">
+                              <div className="flex items-center">
+                                <h4 className="font-medium text-gray-800 text-sm sm:text-base">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                                <span className="ml-2 px-2 py-0.5 text-xs sm:text-sm bg-green-100 text-green-800 rounded-full">
+                                  Accepted
+                                </span>
+                              </div>
+                              <p className="text-sm sm:text-base text-gray-600">
+                                Event: <span className="font-medium">{(match as any).opportunities?.title || 'Unknown Event'}</span>
                               </p>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {match.meeting_link && (
-                              <a 
-                                href={match.meeting_link} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center text-xs sm:text-sm"
-                              >
-                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                                Join Meeting
-                              </a>
-                            )}
-                            {match.opportunities?.sponsorship_brochure_url && (
-                              <a 
-                                href={match.opportunities.sponsorship_brochure_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center text-xs sm:text-sm"
-                              >
-                                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                                View Brochure
-                              </a>
-                            )}
-                            {match.meeting_scheduled_at && (
-                              <a
-                                href={generateGoogleCalendarLink(match)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-2 sm:px-3 py-0.5 sm:py-1 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 flex items-center text-xs sm:text-sm"
-                              >
-                                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                                Add to Calendar
-                              </a>
-                            )}
+                              {match.meeting_scheduled_at && (
+                                <p className="text-sm sm:text-base text-gray-600">
+                                  Meeting scheduled for: {new Date(match.meeting_scheduled_at).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
+                              <div className="flex flex-row gap-3 sm:flex-row sm:gap-4">
+                                {match.opportunities?.sponsorship_brochure_url && (
+                                  <a 
+                                    href={match.opportunities.sponsorship_brochure_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 flex items-center justify-center flex-1 sm:flex-none"
+                                  >
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    View Brochure
+                                  </a>
+                                )}
+                                {match.meeting_scheduled_at && (
+                                  <a
+                                    href={generateGoogleCalendarLink(match)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200 flex items-center justify-center flex-1 sm:flex-none"
+                                  >
+                                    <Calendar className="w-4 h-4 mr-2" />
+                                    Add to Calendar
+                                  </a>
+                                )}
+                              </div>
+                              {match.meeting_link && (
+                                <a 
+                                  href={match.meeting_link} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="px-4 py-2 bg-blue-100 text-[#2B4B9B] text-sm font-medium rounded-md hover:bg-blue-200 flex items-center justify-center w-full sm:w-auto"
+                                >
+                                  <Video className="w-4 h-4 mr-2" />
+                                  Join Meeting
+                                </a>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>

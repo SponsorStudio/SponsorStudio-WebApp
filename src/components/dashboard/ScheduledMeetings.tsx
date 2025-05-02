@@ -118,7 +118,7 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
                           href={meeting.meeting_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1.5 bg-[#2B4B9B] text-white text-sm font-medium rounded-md hover:bg-[#1a2f61] shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B]"
+                          className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-[#2B4B9B] text-sm font-medium rounded-md hover:bg-blue-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B]"
                         >
                           <Video className="w-4 h-4 mr-1" />
                           Join Meeting
@@ -131,7 +131,7 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
                           href={generateGoogleCalendarLink(meeting)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center px-3 py-1.5 bg-[#2B4B9B] text-white text-sm font-medium rounded-md hover:bg-[#1a2f61] shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B]"
+                          className="inline-flex items-center px-3 py-1.5 bg-blue-100 text-[#2B4B9B] text-sm font-medium rounded-md hover:bg-blue-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B]"
                         >
                           <CalendarPlus className="w-4 h-4 mr-1" />
                           Add to Calendar
@@ -181,7 +181,7 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
                       href={meeting.meeting_link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 min-w-0 inline-flex items-center justify-center px-1.5 py-2 bg-[#2B4B9B] text-white text-sm font-medium rounded-md hover:bg-[#1a2f61] shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B] truncate"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center px-1.5 py-2 bg-blue-100 text-[#2B4B9B] text-sm font-medium rounded-md hover:bg-blue-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B] truncate"
                     >
                       <Video className="w-4 h-4 mr-1" />
                       Join Meeting
@@ -194,7 +194,7 @@ export default function ScheduledMeetings({ meetings, isBrand }: ScheduledMeetin
                       href={generateGoogleCalendarLink(meeting)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex-1 min-w-0 inline-flex items-center justify-center px-1.5 py-2 bg-[#2B4B9B] text-white text-sm font-medium rounded-md hover:bg-[#1a2f61] shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B] truncate"
+                      className="flex-1 min-w-0 inline-flex items-center justify-center px-1.5 py-2 bg-blue-100 text-[#2B4B9B] text-sm font-medium rounded-md hover:bg-blue-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#2B4B9B] truncate"
                     >
                       <CalendarPlus className="w-4 h-4 mr-1" />
                       Add to Calendar
