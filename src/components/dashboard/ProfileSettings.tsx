@@ -3,7 +3,7 @@ import { updateProfile } from '../../lib/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../lib/database.types';
-import { Save, X, Camera, SquarePen, Crop } from 'lucide-react';
+import { Save, X, Camera, SquarePen, Crop, LogOut } from 'lucide-react';
 import Cropper from 'react-easy-crop';
 import { Area } from 'react-easy-crop/types';
 import { CustomModal } from '../../components/CustomModal';
@@ -62,7 +62,24 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      toast.success('Logged out successfully');
+      setShowLogoutModal(false);
+    } catch (err) {
+      console.error('Logout error:', err);
+      toast.error('Failed to log out');
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -467,7 +484,14 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const isBrand = profile?.user_type === 'brand' || profile?.user_type === 'agency';
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-white rounded-lg shadow p-6 relative">
+      <button
+        onClick={handleLogout}
+        className="block sm:hidden absolute top-2 right-2 p-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] flex items-center"
+      >
+        <LogOut className="w-4 h-4 mr-1" />
+        <span className="text-sm">Logout</span>
+      </button>
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Profile Settings</h2>
 
       {success && (
@@ -1031,7 +1055,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         isOpen={showOtpPopup}
         onClose={() => setShowOtpPopup(false)}
         title="Verify Phone Number"
-        customStyles={{ maxWidth: '28rem', height: '100px' }}
+        customStyles={{ maxWidth: '28rem', height: '15.5rem' ,width:'90%'}}
       >
         <div>
           <p className="text-sm text-gray-600 mb-4">
@@ -1067,7 +1091,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           isOpen={showCropper}
           onClose={resetFileInput}
           title="Crop Profile Picture"
-          customStyles={{ maxWidth: '32rem', height: 'auto' }}
+          customStyles={{ maxWidth: '32rem', height: 'auto' ,width: '90%'}}
         >
           <div>
             <div className="relative w-full h-80">
@@ -1126,6 +1150,33 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           </div>
         </CustomModal>
       )}
+
+      <CustomModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        title="Confirm Logout"
+        customStyles={{ maxWidth: '28rem', height: '11rem',width: '90%' }}
+      >
+        <div>
+          <p className="text-sm text-gray-600 mb-4">
+            Are you sure you want to log out?
+          </p>
+          <div className="flex justify-end space-x-3 mt-5">
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmLogout}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      </CustomModal>
     </div>
   );
 }
