@@ -21,24 +21,10 @@ import {
   Clock,
   Filter,
   Search,
-  Settings,
   RefreshCw,
-  LogOut,
   Building2,
-  Globe,
-  Phone,
-  Mail,
-  Tag,
-  Info,
-  Target,
-  Clock8,
-  Footprints,
-  Users2,
-  CalendarRange,
   FileText as FileIcon,
-  ExternalLink,
-  CheckSquare,
-  ListChecks
+  CalendarRange
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import EventAnalytics from './EventAnalytics';
@@ -92,6 +78,8 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [matchFilter, setMatchFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
@@ -142,7 +130,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         return;
       }
       const oppIds = creatorOpps.map(opp => opp.id);
-      console.log('Fetching matches for opportunity IDs:', oppIds);
       const { data: matchesData, error: matchesError } = await supabase
         .from('matches')
         .select(`
@@ -155,7 +142,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         console.error('Error fetching matches:', matchesError);
         throw new Error(`Failed to fetch matches: ${matchesError.message}`);
       }
-      console.log('Fetched matches:', matchesData);
       setMatches(matchesData as Match[] || []);
     } catch (error: any) {
       console.error('Error fetching matches:', error.message);
@@ -174,7 +160,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           'postgres_changes',
           { event: '*', schema: 'public', table: 'matches' },
           () => {
-            console.log('Matches table changed, refreshing matches');
             fetchMatches();
           }
         )
@@ -187,7 +172,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   const fetchBrandEmail = async (brandId: string): Promise<string> => {
     try {
-      console.log('Fetching email for brandId:', brandId);
       const response = await fetch('https://urablfvmqregyvfyaovi.supabase.co/functions/v1/get-user-email', {
         method: 'POST',
         headers: {
@@ -197,7 +181,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         body: JSON.stringify({ userId: brandId })
       });
       const data = await response.json();
-      console.log('Edge function response:', data);
       if (data.error || !data.email) {
         throw new Error(data.error || 'Failed to fetch brand email');
       }
@@ -216,7 +199,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         message: 'Your match has been approved! Please check your dashboard for more details.'
       };
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams);
-      console.log('Email sent successfully to', brandEmail);
     } catch (error) {
       console.error('Error sending email:', error);
       toast.error('Failed to send notification email');
@@ -237,15 +219,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         .eq('id', matchId)
         .single();
       if (checkError) {
-        console.error('Match check error:', checkError);
         throw new Error(`Failed to verify match: ${checkError.message}`);
       }
       if (!currentMatch) {
-        console.error('No match found for ID:', matchId);
         throw new Error('Match not found');
       }
       if (currentMatch.status !== 'pending') {
-        console.error('Match is not pending:', currentMatch.status);
         throw new Error(`Match is already ${currentMatch.status}`);
       }
       const { error: updateError } = await supabase
@@ -253,7 +232,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', matchId);
       if (updateError) {
-        console.error('Update error:', updateError);
         throw new Error(`Failed to update match: ${updateError.message}`);
       }
       if (status === 'accepted') {
@@ -264,7 +242,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           .eq('id', currentMatch.opportunity_id)
           .single();
         if (oppError || !opportunity) {
-          console.error('Error fetching opportunity:', oppError);
           throw new Error('Failed to fetch opportunity title');
         }
         await sendApprovalEmail(brandEmail, opportunity.title);
@@ -273,14 +250,10 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       toast.success(
         status === 'accepted'
           ? 'Match accepted successfully! The brand has been notified.'
-          : 'Match declined successfully',
-        { duration: 4000 }
+          : 'Match declined successfully'
       );
     } catch (error: any) {
-      console.error('Error updating match status:', error.message);
-      toast.error(error.message || `Failed to ${status} match. Please try again.`, {
-        duration: 4000,
-      });
+      toast.error(error.message || `Failed to ${status} match. Please try again.`);
     } finally {
       setProcessingMatches(prev => ({
         ...prev,
@@ -315,9 +288,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'media_files' | 'sponsorship_brochure_file') => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
-      files.forEach(file => {
-        console.log(`Selected ${field === 'media_files' ? 'media' : 'sponsorship brochure'} file:`, file.name, 'size:', file.size, 'type:', file.type);
-      });
       if (field === 'media_files') {
         setFormData(prev => ({
           ...prev,
@@ -346,7 +316,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         const uploadPromises = formData.media_files.map(async (file) => {
           const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
           const filePath = `opportunities/${user.id}/${fileName}`;
-          console.log('Uploading media file:', file.name, 'to path:', filePath);
           const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result as ArrayBuffer);
@@ -361,29 +330,23 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               contentType: file.type
             });
           if (error) {
-            console.error('Upload error details:', error);
             throw new Error(`Failed to upload media file ${file.name}: ${error.message}`);
           }
-          console.log('Media upload successful, data:', data);
           const { data: publicUrlData } = supabase.storage
             .from('media')
             .getPublicUrl(filePath);
           if (!publicUrlData.publicUrl) {
-            console.error('No public URL generated for path:', filePath);
             throw new Error('Failed to generate public URL');
           }
-          console.log('Generated public URL for media:', publicUrlData.publicUrl);
           return publicUrlData.publicUrl;
         });
         mediaUrls = await Promise.all(uploadPromises);
-        console.log('All media URLs:', mediaUrls);
       }
 
       if (formData.sponsorship_brochure_file) {
         const file = formData.sponsorship_brochure_file;
         const fileName = `${Date.now()}_brochure_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
         const filePath = `opportunities/${user.id}/${fileName}`;
-        console.log('Uploading sponsorship brochure:', file.name, 'to path:', filePath);
         const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as ArrayBuffer);
@@ -398,18 +361,14 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
             contentType: file.type
           });
         if (error) {
-          console.error('Upload error details:', error);
           throw new Error(`Failed to upload sponsorship brochure ${file.name}: ${error.message}`);
         }
-        console.log('Sponsorship brochure upload successful, data:', data);
         const { data: publicUrlData } = supabase.storage
           .from('media')
           .getPublicUrl(filePath);
         if (!publicUrlData.publicUrl) {
-          console.error('No public URL generated for path:', filePath);
           throw new Error('Failed to generate public URL');
         }
-        console.log('Generated public URL for brochure:', publicUrlData.publicUrl);
         sponsorshipBrochureUrl = publicUrlData.publicUrl;
       }
 
@@ -468,7 +427,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       setSelectedOpportunityId(null);
       fetchOpportunities();
     } catch (error: any) {
-      console.error('Error saving opportunity:', error.message);
       toast.error(`Failed to save event: ${error.message}`);
     } finally {
       setIsSubmitting(false);
@@ -519,7 +477,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       toast.success('Event deleted successfully');
       fetchOpportunities();
     } catch (error: any) {
-      console.error('Error deleting opportunity:', error.message);
       toast.error('Failed to delete event');
     } finally {
       setShowDeleteModal(false);
@@ -549,7 +506,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       toast.success(`Event ${newStatus === 'active' ? 'activated' : 'paused'} successfully`);
       fetchOpportunities();
     } catch (error: any) {
-      console.error('Error updating opportunity status:', error.message);
       toast.error('Failed to update event status');
     }
   };
@@ -584,7 +540,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       location: match.meeting_link || '',
     };
 
-    // Format dates for Google Calendar (YYYYMMDDTHHMMSSZ)
     const formatDate = (date: string) => {
       return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
@@ -592,7 +547,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
     const startDate = formatDate(event.start);
     const endDate = formatDate(event.end);
 
-    // Construct the Google Calendar URL
     const googleCalendarUrl = new URL('https://calendar.google.com/calendar/render');
     googleCalendarUrl.searchParams.append('action', 'TEMPLATE');
     googleCalendarUrl.searchParams.append('text', event.title);
@@ -602,6 +556,21 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
     return googleCalendarUrl.toString();
   };
+
+  const filteredMatches = matches
+    .filter(match => {
+      if (matchFilter === 'all') return true;
+      return match.status === matchFilter;
+    })
+    .filter(match => {
+      if (!searchQuery) return true;
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        match.profiles?.company_name?.toLowerCase().includes(searchLower) ||
+        match.opportunities?.title?.toLowerCase().includes(searchLower) ||
+        match.profiles?.industry?.toLowerCase().includes(searchLower)
+      );
+    });
 
   const pendingMatches = matches.filter(match => match.status === 'pending');
   const acceptedMatches = matches.filter(match => match.status === 'accepted');
@@ -846,14 +815,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               src={preview}
                               alt={`Media preview ${index + 1}`}
                               className="w-full h-32 object-cover rounded-lg"
-                              onError={(e) => console.error('Error loading preview:', preview)}
                             />
                           ) : formData.media_files![index].type.startsWith('video/') ? (
                             <video
                               src={preview}
                               controls
                               className="w-full h-32 object-cover rounded-lg"
-                              onError={(e) => console.error('Error loading video preview:', preview)}
                             />
                           ) : (
                             <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
@@ -977,7 +944,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                 });
                 setMediaPreviews([]);
               }}
-              className="flex items-center space-x-1 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] transition-colors"
+              className="flex items-center space-x-1 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Create Event</span>
@@ -1239,7 +1206,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                     src={url}
                                     alt={`Media ${index + 1}`}
                                     className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
-                                    onError={(e) => console.error('Error loading image:', url)}
                                   />
                                 ))}
                               </div>
@@ -1344,205 +1310,205 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
           {activeTab === 'matches' && (
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">Brand Matches</h2>
-              <button
-                onClick={fetchMatches}
-                className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Refresh Matches
-              </button>
-              
-              {matches.length === 0 ? (
-                <div className="text-center py-8">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-4 sm:mb-0">Brand Matches</h2>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={fetchMatches}
+                    className="flex items-center px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search matches..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    />
+                  </div>
+                  <div className="flex space-x-2">
+                    {['all', 'pending', 'accepted', 'rejected'].map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => setMatchFilter(filter as any)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize ${
+                          matchFilter === filter
+                            ? 'bg-[#2B4B9B] text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        {filter} {filter !== 'all' && `(${matches.filter(m => m.status === filter).length})`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {filteredMatches.length === 0 ? (
+                <div className="text-center py-12">
                   <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                     <Users className="w-8 h-8 text-gray-400" />
                   </div>
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">No matches yet</h3>
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">
+                    {searchQuery ? 'No matching results' : 'No matches yet'}
+                  </h3>
                   <p className="text-gray-500">
-                    When brands express interest in your events, they'll appear here.
+                    {searchQuery
+                      ? 'Try adjusting your search or filter criteria.'
+                      : 'When brands express interest in your events, they\'ll appear here.'}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6">
-                  {pendingMatches.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                        <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
-                        Pending Response
-                      </h3>
-                      <div className="space-y-3">
-                        {pendingMatches.map(match => (
-                          <div key={match.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <div className="flex flex-col sm:flex-row justify-between">
-                              <div className="mb-2 sm:mb-0">
-                                <div className="flex items-center">
-                                  <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                                  <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                                    Pending
+                <div className="grid gap-4">
+                  {filteredMatches.map((match) => (
+                    <div
+                      key={match.id}
+                      className={`rounded-lg border shadow-sm transition-all duration-200 ${
+                        match.status === 'pending'
+                          ? 'border-yellow-200 bg-yellow-50/50'
+                          : match.status === 'accepted'
+                          ? 'border-green-200 bg-green-50/50'
+                          : 'border-gray-200 bg-gray-50/50 opacity-80'
+                      }`}
+                    >
+                      <div className="p-4 sm:p-5">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                          <div className="flex-grow">
+                            <div className="flex items-center mb-2">
+                              <Building2 className="w-5 h-5 text-gray-500 mr-2" />
+                              <h4 className="text-lg font-semibold text-gray-800">
+                                {match.profiles?.company_name || 'Unknown Company'}
+                              </h4>
+                              <span
+                                className={`ml-3 px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                                  match.status === 'pending'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : match.status === 'accepted'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}
+                              >
+                                {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
+                              </span>
+                            </div>
+                            <div className="space-y-1 text-sm text-gray-600">
+                              <p>
+                                <span className="font-medium">Event:</span>{' '}
+                                {match.opportunities?.title || 'Unknown Event'}
+                              </p>
+                              {match.profiles?.industry && (
+                                <p>
+                                  <span className="font-medium">Industry:</span> {match.profiles.industry}
+                                </p>
+                              )}
+                              {match.profiles?.contact_person_name && (
+                                <p>
+                                  <span className="font-medium">Contact:</span>{' '}
+                                  {match.profiles.contact_person_name}
+                                  {match.profiles.contact_person_phone &&
+                                    ` (${match.profiles.contact_person_phone})`}
+                                </p>
+                              )}
+                              {match.profiles?.email && (
+                                <p>
+                                  <span className="font-medium">Email:</span> {match.profiles.email}
+                                </p>
+                              )}
+                              <p>
+                                <span className="font-medium">
+                                  {match.status === 'pending' ? 'Received' : 'Updated'}:
+                                </span>{' '}
+                                {new Date(
+                                  match.status === 'pending' ? match.created_at : match.updated_at
+                                ).toLocaleDateString()}
+                              </p>
+                              {match.meeting_scheduled_at && match.status === 'accepted' && (
+                                <p className="flex items-center">
+                                  <CalendarRange className="w-4 h-4 mr-1" />
+                                  <span>
+                                    Meeting: {new Date(match.meeting_scheduled_at).toLocaleString()}
                                   </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Interested in: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
                                 </p>
-                                {match.profiles?.industry && (
-                                  <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
-                                )}
-                                {match.profiles?.contact_person_name && (
-                                  <p className="text-sm text-gray-600">
-                                    Contact: {match.profiles.contact_person_name}
-                                    {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
-                                  </p>
-                                )}
-                                <p className="text-sm text-gray-600">
-                                  Received: {new Date(match.created_at).toLocaleDateString()}
+                              )}
+                              {match.notes && match.status === 'accepted' && (
+                                <p className="flex items-start">
+                                  <FileIcon className="w-4 h-4 mr-1 mt-1" />
+                                  <span>
+                                    <span className="font-medium">Notes:</span> {match.notes}
+                                  </span>
                                 </p>
-                              </div>
-                              <div className="flex space-x-2">
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-end space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                            {match.status === 'pending' ? (
+                              <>
                                 <button
                                   onClick={() => updateMatchStatus(match.id, 'accepted')}
                                   disabled={processingMatches[match.id]?.accept}
-                                  className={`px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center ${
-                                    processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
-                                  }`}
+                                  className={`w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-green-400 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors`}
                                 >
                                   {processingMatches[match.id]?.accept ? (
-                                    <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                                   ) : (
-                                    <Check className="w-4 h-4 mr-1" />
+                                    <Check className="w-4 h-4 mr-2" />
                                   )}
                                   Accept
                                 </button>
                                 <button
                                   onClick={() => updateMatchStatus(match.id, 'rejected')}
                                   disabled={processingMatches[match.id]?.decline}
-                                  className={`px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center ${
-                                    processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
-                                  }`}
+                                  className={`w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors`}
                                 >
                                   {processingMatches[match.id]?.decline ? (
-                                    <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                                   ) : (
-                                    <X className="w-4 h-4 mr-1" />
+                                    <X className="w-4 h-4 mr-2" />
                                   )}
                                   Decline
                                 </button>
-                              </div>
-                            </div>
+                              </>
+                            ) : match.status === 'accepted' && match.meeting_link && match.meeting_scheduled_at ? (
+                              <>
+                                <a
+                                  href={match.meeting_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-blue-200 text-[#2B4B9B] rounded-lg hover:bg-blue-400 transition-colors"
+                                >
+                                  <LinkIcon className="w-4 h-4 mr-2" />
+                                  Join Meeting
+                                </a>
+                                <a
+                                  href={generateGoogleCalendarLink(match)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-full sm:w-auto flex items-center justify-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                >
+                                  <Calendar className="w-4 h-4 mr-2" />
+                                  Add to Calendar
+                                </a>
+                              </>
+                            ) : match.status === 'accepted' ? (
+                              <span className="text-sm text-gray-600 flex items-center">
+                                <Calendar className="w-4 h-4 mr-1" />
+                                Meeting to be scheduled
+                              </span>
+                            ) : null}
                           </div>
-                        ))}
+                        </div>
                       </div>
                     </div>
-                  )}
-
-                  {acceptedMatches.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                        <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                        Accepted Matches
-                      </h3>
-                      <div className="space-y-3">
-                        {acceptedMatches.map(match => (
-                          <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                            <div className="flex flex-col sm:flex-row justify-between items-start">
-                              <div className="mb-2 sm:mb-0">
-                                <div className="flex items-center">
-                                  <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                                  <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                                    Accepted
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Event: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
-                                </p>
-                                {match.profiles?.industry && (
-                                  <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
-                                )}
-                                {match.profiles?.contact_person_name && (
-                                  <p className="text-sm text-gray-600">
-                                    Contact: {match.profiles.contact_person_name}
-                                    {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
-                                  </p>
-                                )}
-                                {match.meeting_scheduled_at && (
-                                  <p className="text-sm text-gray-600 flex items-center">
-                                    <Calendar className="w-4 h-4 mr-1" />
-                                    Meeting: {new Date(match.meeting_scheduled_at).toLocaleString()}
-                                  </p>
-                                )}
-                                {match.meeting_link ? (
-                                  <p className="text-sm text-[#2B4B9B] flex items-center mt-1">
-                                    <LinkIcon className="w-4 h-4 mr-1" />
-                                    <a href={match.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                      Join Meeting
-                                    </a>
-                                  </p>
-                                ) : (
-                                  <p className="text-sm text-gray-600 flex items-center mt-1">
-                                    <Calendar className="w-4 h-4 mr-1" />
-                                    Our team will schedule a meeting soon
-                                  </p>
-                                )}
-                                {match.notes && (
-                                  <p className="text-sm text-gray-600 flex items-start mt-1">
-                                    <FileIcon className="w-4 h-4 mr-1 mt-1" />
-                                    Notes: {match.notes}
-                                  </p>
-                                )}
-                              </div>
-                              <div className="flex space-x-2">
-                                {match.meeting_link && match.meeting_scheduled_at ? (
-                                  <a
-                                    href={generateGoogleCalendarLink(match)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
-                                  >
-                                    <Calendar className="w-4 h-4 mr-1" />
-                                    Add to Google Calendar
-                                  </a>
-                                ) : null}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {rejectedMatches.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                        <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
-                        Declined Matches
-                      </h3>
-                      <div className="space-y-3">
-                        {rejectedMatches.map(match => (
-                          <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4 opacity-70">
-                            <div className="flex flex-col sm:flex-row justify-between">
-                              <div>
-                                <div className="flex items-center">
-                                  <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                                  <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">
-                                    Declined
-                                  </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mt-1">
-                                  Event: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
-                                </p>
-                                {match.profiles?.industry && (
-                                  <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
-                                )}
-                                <p className="text-sm text-gray-600">
-                                  Declined on: {new Date(match.updated_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
