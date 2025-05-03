@@ -216,7 +216,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
                 id="phoneNumber"
                 international
                 countryCallingCodeEditable={false}
-                defaultCountry="US"
+                defaultCountry="IN"
                 value={phoneNumber}
                 onChange={setPhoneNumber}
                 className="mt-1 block w-full shadow-sm disabled:opacity-50"
