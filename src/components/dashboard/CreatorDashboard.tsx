@@ -617,7 +617,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   if (showAnalytics && selectedAnalyticsId) {
     return (
-      <div>
+      <div className="pb-14 sm:pb-0">
         <button
           onClick={() => {
             setShowAnalytics(false);
@@ -634,7 +634,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   }
 
   return (
-    <div>
+    <div className="pb-14 sm:pb-0">
       <Modal
         isOpen={showDeleteModal}
         onClose={handleDeleteCancel}
@@ -644,890 +644,905 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         confirmText="Delete"
         cancelText="Cancel"
       />
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Event Dashboard</h1>
-        <button
-          onClick={() => {
-            setShowForm(true);
-            setIsEditing(false);
-            setSelectedOpportunityId(null);
-            setFormData({
-              title: '',
-              description: '',
-              location: '',
-              category_id: '',
-              reach: undefined,
-              price_range: { min: undefined, max: undefined },
-              requirements: '',
-              benefits: '',
-              media_urls: [],
-              start_date: '',
-              end_date: '',
-              status: 'active',
-              calendly_link: '',
-              sponsorship_brochure_url: '',
-              verification_status: 'pending',
-              media_files: undefined,
-              sponsorship_brochure_file: undefined
-            });
-            setMediaPreviews([]);
-          }}
-          className="flex items-center space-x-1 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] transition-colors"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Create Event</span>
-        </button>
-      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-800">Total Events</h3>
-            <div className="p-2 bg-blue-100 rounded-full">
-              <Calendar className="w-5 h-5 text-blue-600" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{opportunities.length}</p>
-          <div className="flex items-center mt-2 text-sm">
-            <span className="text-gray-500">
-              {opportunities.filter(o => o.status === 'active').length} active
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-800">Pending Matches</h3>
-            <div className="p-2 bg-yellow-100 rounded-full">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{pendingMatches.length}</p>
-          <div className="flex items-center mt-2 text-sm">
-            <span className="text-gray-500">Awaiting your response</span>
-          </ div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-800">Accepted Matches</h3>
-            <div className="p-2 bg-green-100 rounded-full">
-              <Check className="w-5 h-5 text-green-600" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{acceptedMatches.length}</p>
-          <div className="flex items-center mt-2 text-sm">
-            <span className="text-gray-500">Confirmed partnerships</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-800">Rejected Matches</h3>
-            <div className="p-2 bg-red-100 rounded-full">
-              <X className="w-5 h-5 text-red-600" />
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900">{rejectedMatches.length}</p>
-          <div className="flex items-center mt-2 text-sm">
-            <span className="text-gray-500">Declined partnerships</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6 border-b border-gray-200">
-        <div className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('opportunities')}
-            className={`py-2 px-1 -mb-px font-medium text-sm ${
-              activeTab === 'opportunities'
-                ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Your Events
-          </button>
-          <button
-            onClick={() => setActiveTab('matches')}
-            className={`py-2 px-1 -mb-px font-medium text-sm ${
-              activeTab === 'matches'
-                ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Brand Matches {pendingMatches.length > 0 && (
-              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                {pendingMatches.length} new
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {showForm && (
-        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">
-            {isEditing ? 'Edit Event' : 'Create New Event'}
-          </h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category
-                </label>
-                <select
-                  name="category_id"
-                  value={formData.category_id}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                  required
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                required
-              ></textarea>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Location
-                </label>
-                <input
-                  type="text"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  name="start_date"
-                  value={formData.start_date}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  name="end_date"
-                  value={formData.end_date}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Reach (Audience Size)
-                </label>
-                <input
-                  type="number"
-                  name="reach"
-                  value={formData.reach ?? ''}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Min Price (₹)
-                </label>
-                <input
-                  type="number"
-                  name="price_min"
-                  value={formData.price_range?.min ?? ''}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Max Price (₹)
-                </label>
-                <input
-                  type="number"
-                  name="price_max"
-                  value={formData.price_range?.max ?? ''}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Requirements
-              </label>
-              <textarea
-                name="requirements"
-                value={formData.requirements}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-              ></textarea>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Benefits
-              </label>
-              <textarea
-                name="benefits"
-                value={formData.benefits}
-                onChange={handleInputChange}
-                rows={2}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-              ></textarea>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Upload Media Files (Images/Videos)
-              </label>
-              <input
-                type="file"
-                multiple
-                accept="image/*,video/*"
-                onChange={(e) => handleFileChange(e, 'media_files')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Upload images or videos that showcase your event (max 5 files, up to 10MB each)
-              </p>
-              {formData.media_files && formData.media_files.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600">Selected files:</p>
-                  <ul className="list-disc list-inside text-sm text-gray-700">
-                    {formData.media_files.map((file, index) => (
-                      <li key={index}>{file.name}</li>
-                    ))}
-                  </ul>
-                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    {mediaPreviews.map((preview, index) => (
-                      <div key={index} className="relative">
-                        {formData.media_files![index].type.startsWith('image/') ? (
-                          <img
-                            src={preview}
-                            alt={`Media preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg"
-                            onError={(e) => console.error('Error loading preview:', preview)}
-                          />
-                        ) : formData.media_files![index].type.startsWith('video/') ? (
-                          <video
-                            src={preview}
-                            controls
-                            className="w-full h-32 object-cover rounded-lg"
-                            onError={(e) => console.error('Error loading video preview:', preview)}
-                          />
-                        ) : (
-                          <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
-                            <span className="text-gray-500">Unsupported file type</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {isSubmitting && (
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                        <div className="bg-[#2B4B9B] h-2.5 rounded-full animate-indeterminate"></div>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">Uploading...</p>
-                    </div>
-                  )}
+      {showForm ? (
+        <div className="fixed inset-0 bg-white overflow-y-auto pb-14 sm:static sm:bg-transparent sm:overflow-visible">
+          <div className="relative p-4 sm:p-6 pt-12 sm:pt-6 bg-white rounded-lg shadow-sm sm:mb-6">
+            <button
+              onClick={() => {
+                setShowForm(false);
+                setMediaPreviews([]);
+              }}
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-700"
+              aria-label="Close form"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              {isEditing ? 'Edit Event' : 'Create New Event'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    required
+                  />
                 </div>
-              )}
-            </div>
-
-            <div style={{display:"none"}}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Calendly Link
-              </label>
-              <input
-                type="url"
-                name="calendly_link"
-                value={formData.calendly_link}
-                onChange={handleInputChange}
-                placeholder="https://calendly.com/your-link"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Add your Calendly link for brands to schedule meetings with you
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Upload Sponsorship Brochure (PDF)
-              </label>
-              <input
-                type="file"
-                accept="application/pdf"
-                onChange={(e) => handleFileChange(e, 'sponsorship_brochure_file')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Upload a PDF of your sponsorship brochure (up to 10MB)
-              </p>
-              {formData.sponsorship_brochure_file && (
-                <div className="mt-2">
-                  <p className="text-sm text-gray-600">Selected brochure: {formData.sponsorship_brochure_file.name}</p>
-                  {isSubmitting && (
-                    <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
-                        <div className="bg-[#2B4B9B] h-2.5 rounded-full animate-indeterminate"></div>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">Uploading...</p>
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    name="category_id"
+                    value={formData.category_id}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    required
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
-            </div>
-            
-            <div className="flex justify-end space-x-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setMediaPreviews([]);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className={`px-4 py-2 ${isSubmitting ? 'bg-gray-400' : 'bg-[#2B4B9B]'} text-white rounded-lg hover:${isSubmitting ? '' : 'bg-[#1a2f61]'}`}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center">
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    {isEditing ? 'Updating...' : 'Creating...'}
-                  </span>
-                ) : isEditing ? 'Update Event' : 'Create Event'}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {activeTab === 'opportunities' && (
-        <>
-          {opportunities.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <PlusCircle className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-xl font-medium text-gray-800 mb-2">No events yet</h3>
-              <p className="text-gray-600 mb-4">
-                Create your first event to start connecting with brands.
-              </p>
-              <button
-                onClick={() => setShowForm(true)}
-                className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
-              >
-                Create Event
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {opportunities.map((opportunity) => {
-                const opportunityMatches = getMatchesForOpportunity(opportunity.id);
-                const isExpanded = expandedMatches[opportunity.id] || false;
-                return (
-                  <div key={opportunity.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div className="p-4 sm:p-6">
-                      <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
-                        <div className="mb-4 sm:mb-0">
-                          <div className="flex flex-wrap items-center mb-1">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mr-2">{opportunity.title}</h3>
-                            <span className={`px-2 py-0.5 text-xs rounded-full ${
-                              opportunity.status === 'active' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
-                              {opportunity.status === 'active' ? 'Active' : 'Paused'}
-                            </span>
-                            <span className="ml-2">
-                              {getVerificationStatusBadge(opportunity.verification_status)}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600">{getCategoryName(opportunity.category_id)}</p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleViewAnalytics(opportunity.id)}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-                            title="View Analytics"
-                          >
-                            <BarChart3 className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => toggleOpportunityStatus(opportunity.id, opportunity.status)}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-                            title={opportunity.status === 'active' ? 'Pause Event' : 'Activate Event'}
-                            disabled={opportunity.verification_status !== 'approved'}
-                          >
-                            {opportunity.status === 'active' ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                          </button>
-                          <button
-                            onClick={() => handleEdit(opportunity)}
-                            className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
-                            title="Edit Event"
-                          >
-                            <Edit className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(opportunity.id)}
-                            className="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100"
-                            title="Delete Event"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                      
-                      {opportunity.verification_status === 'pending' && (
-                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center">
-                          <AlertCircle className="w-5 h-5 text-yellow-500 mr-2 flex-shrink-0" />
-                          <p className="text-sm text-yellow-700">
-                            This event is pending verification by our team. It will be visible to brands once approved.
-                          </p>
-                        </div>
-                      )}
-
-                      {opportunity.verification_status === 'rejected' && (
-                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center">
-                          <AlertCircle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm text-red-700 font-medium">
-                              This event was rejected during verification.
-                            </p>
-                            {opportunity.rejection_reason && (
-                              <p className="text-sm text-red-700 mt-1">
-                                Reason: {opportunity.rejection_reason}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div className="flex items-center">
-                          <MapPin className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
-                          <span className="text-sm text-gray-600 truncate">{opportunity.location}</span>
-                        </div>
-                        
-                        {opportunity.start_date && (
-                          <div className="flex items-center">
-                            <Calendar className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
-                            <span className="text-sm text-gray-600 truncate">
-                              {opportunity.end_date &&
-                              new Date(opportunity.start_date).toDateString() ===
-                              new Date(opportunity.end_date).toDateString()
-                                ? new Date(opportunity.start_date).toLocaleDateString()
-                                : `${new Date(opportunity.start_date).toLocaleDateString()}${
-                                    opportunity.end_date
-                                      ? ` - ${new Date(opportunity.end_date).toLocaleDateString()}`
-                                      : ''
-                                  }`}
-                            </span>
-                          </div>
-                        )}
-                        
-                        {opportunity.reach && (
-                          <div className="flex items-center">
-                            <Users className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
-                            <span className="text-sm text-gray-600">{opportunity.reach.toLocaleString()} reach</span>
-                          </div>
-                        )}
-                        
-                        {opportunity.price_range && (
-                          <div className="flex items-center">
-                            <DollarSign className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
-                            <span className="text-sm text-gray-600 truncate">
-                              {typeof opportunity.price_range === 'object' 
-                                ? `₹${opportunity.price_range.min} - ₹${opportunity.price_range.max}`
-                                : 'Contact for pricing'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {opportunity.calendly_link && (
-                          <div className="flex items-center text-sm text-[#2B4B9B]">
-                            <Calendar className="w-4 h-4 mr-1" />
-                            <span>Calendly Link Available</span>
-                          </div>
-                        )}
-                        
-                        {opportunity.sponsorship_brochure_url && (
-                          <div className="flex items-center text-sm text-[#2B4B9B]">
-                            <LinkIcon className="w-4 h-4 mr-1" />
-                            <a href={opportunity.sponsorship_brochure_url} target="_blank" rel="noopener noreferrer" className="underline">
-                              Sponsorship Brochure Available
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                      {opportunity.media_urls && opportunity.media_urls.length > 0 && (
-                        <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-700">Media:</h4>
-                          <div className="flex flex-wrap gap-2 mt-2">
-                            {opportunity.media_urls.map((url, index) => (
-                              <img
-                                key={index}
-                                src={url}
-                                alt={`Media ${index + 1}`}
-                                className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
-                                onError={(e) => console.error('Error loading image:', url)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      <p className="text-gray-600 mb-4">{opportunity.description}</p>
-                      
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                        <div className="flex items-center mb-2 sm:mb-0">
-                          <span className="text-sm font-medium text-gray-700 mr-2">
-                            {opportunityMatches.length} {opportunityMatches.length === 1 ? 'match' : 'matches'}
-                          </span>
-                          {opportunityMatches.length > 0 && (
-                            <button
-                              onClick={() => toggleMatchExpand(opportunity.id)}
-                              className="text-[#2B4B9B] hover:text-[#1a2f61] text-sm flex items-center"
-                            >
-                              {isExpanded ? 'Hide' : 'View'} 
-                              {isExpanded ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
-                            </button>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                  required
+                ></textarea>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    name="start_date"
+                    value={formData.start_date}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    name="end_date"
+                    value={formData.end_date}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Reach (Audience Size)
+                  </label>
+                  <input
+                    type="number"
+                    name="reach"
+                    value={formData.reach ?? ''}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Min Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="price_min"
+                    value={formData.price_range?.min ?? ''}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Max Price (₹)
+                  </label>
+                  <input
+                    type="number"
+                    name="price_max"
+                    value={formData.price_range?.max ?? ''}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Requirements
+                </label>
+                <textarea
+                  name="requirements"
+                  value={formData.requirements}
+                  onChange={handleInputChange}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                ></textarea>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Benefits
+                </label>
+                <textarea
+                  name="benefits"
+                  value={formData.benefits}
+                  onChange={handleInputChange}
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                ></textarea>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Media Files (Images/Videos)
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  onChange={(e) => handleFileChange(e, 'media_files')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Upload images or videos that showcase your event (max 5 files, up to 10MB each)
+                </p>
+                {formData.media_files && formData.media_files.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Selected files:</p>
+                    <ul className="list-disc list-inside text-sm text-gray-700">
+                      {formData.media_files.map((file, index) => (
+                        <li key={index}>{file.name}</li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {mediaPreviews.map((preview, index) => (
+                        <div key={index} className="relative">
+                          {formData.media_files![index].type.startsWith('image/') ? (
+                            <img
+                              src={preview}
+                              alt={`Media preview ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg"
+                              onError={(e) => console.error('Error loading preview:', preview)}
+                            />
+                          ) : formData.media_files![index].type.startsWith('video/') ? (
+                            <video
+                              src={preview}
+                              controls
+                              className="w-full h-32 object-cover rounded-lg"
+                              onError={(e) => console.error('Error loading video preview:', preview)}
+                            />
+                          ) : (
+                            <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                              <span className="text-gray-500">Unsupported file type</span>
+                            </div>
                           )}
                         </div>
-                      </div>
+                      ))}
                     </div>
-                    
-                    {isExpanded && opportunityMatches.length > 0 && (
-                      <div className="border-t border-gray-200 p-4 bg-gray-50">
-                        <h4 className="font-medium text-gray-800 mb-2">Matches</h4>
-                        <div className="space-y-3">
-                          {opportunityMatches.map((match) => (
-                            <div key={match.id} className="bg-white p-3 rounded border border-gray-200">
-                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                                <div className="mb-2 sm:mb-0">
-                                  <p className="font-medium">{match.profiles?.company_name || 'Unknown Company'}</p>
-                                  <p className="text-sm text-gray-600">
-                                    Status: <span className={`font-medium ${
-                                      match.status === 'pending' ? 'text-yellow-600' :
-                                      match.status === 'accepted' ? 'text-green-600' :
-                                      match.status === 'rejected' ? 'text-red-600' : 'text-gray-600'
-                                    }`}>
-                                      {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
-                                    </span>
-                                  </p>
-                                  {match.profiles?.contact_person_name && (
-                                    <p className="text-sm text-gray-600 truncate">
-                                      Contact: {match.profiles.contact_person_name}
-                                      {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
-                                    </p>
-                                  )}
-                                  {match.profiles?.email && (
-                                    <p className="text-sm text-gray-600 truncate">
-                                      Email: {match.profiles.email}
-                                    </p>
-                                  )}
-                                </div>
-                                
-                                {match.status === 'pending' && (
-                                  <div className="flex space-x-2">
-                                    <button
-                                      onClick={() => updateMatchStatus(match.id, 'accepted')}
-                                      disabled={processingMatches[match.id]?.accept}
-                                      className={`p-1.5 bg-green-100 text-green-600 rounded-full hover:bg-green-200 ${
-                                        processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
-                                      }`}
-                                      title="Accept Match"
-                                    >
-                                      {processingMatches[match.id]?.accept ? (
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Check className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() => updateMatchStatus(match.id, 'rejected')}
-                                      disabled={processingMatches[match.id]?.decline}
-                                      className={`p-1.5 bg-red-100 text-red-600 rounded-full hover:bg-red-200 ${
-                                        processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
-                                      }`}
-                                      title="Reject Match"
-                                    >
-                                      {processingMatches[match.id]?.decline ? (
-                                        <RefreshCw className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <X className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          ))}
+                    {isSubmitting && (
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                          <div className="bg-[#2B4B9B] h-2.5 rounded-full animate-indeterminate"></div>
                         </div>
+                        <p className="text-sm text-gray-600 mt-1">Uploading...</p>
                       </div>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
-      )}
-
-      {activeTab === 'matches' && (
-        <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-6">Brand Matches</h2>
-          <button
-            onClick={fetchMatches}
-            className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
-          >
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh Matches
-          </button>
-          
-          {matches.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <Users className="w-8 h-8 text-gray-400" />
+                )}
               </div>
-              <h3 className="text-lg font-medium text-gray-700 mb-2">No matches yet</h3>
-              <p className="text-gray-500">
-                When brands express interest in your events, they'll appear here.
-              </p>
+
+              <div style={{display:"none"}}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Calendly Link
+                </label>
+                <input
+                  type="url"
+                  name="calendly_link"
+                  value={formData.calendly_link}
+                  onChange={handleInputChange}
+                  placeholder="https://calendly.com/your-link"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Add your Calendly link for brands to schedule meetings with you
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Sponsorship Brochure (PDF)
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => handleFileChange(e, 'sponsorship_brochure_file')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Upload a PDF of your sponsorship brochure (up to 10MB)
+                </p>
+                {formData.sponsorship_brochure_file && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Selected brochure: {formData.sponsorship_brochure_file.name}</p>
+                    {isSubmitting && (
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                          <div className="bg-[#2B4B9B] h-2.5 rounded-full animate-indeterminate"></div>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">Uploading...</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-end space-x-2 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setMediaPreviews([]);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={`px-4 py-2 ${isSubmitting ? 'bg-gray-400' : 'bg-[#2B4B9B]'} text-white rounded-lg hover:${isSubmitting ? '' : 'bg-[#1a2f61]'}`}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center">
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      {isEditing ? 'Updating...' : 'Creating...'}
+                    </span>
+                  ) : isEditing ? 'Update Event' : 'Create Event'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      ) : (
+        <div className={showForm ? 'hidden sm:block' : ''}>
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-800">Event Dashboard</h1>
+            <button
+              onClick={() => {
+                setShowForm(true);
+                setIsEditing(false);
+                setSelectedOpportunityId(null);
+                setFormData({
+                  title: '',
+                  description: '',
+                  location: '',
+                  category_id: '',
+                  reach: undefined,
+                  price_range: { min: undefined, max: undefined },
+                  requirements: '',
+                  benefits: '',
+                  media_urls: [],
+                  start_date: '',
+                  end_date: '',
+                  status: 'active',
+                  calendly_link: '',
+                  sponsorship_brochure_url: '',
+                  verification_status: 'pending',
+                  media_files: undefined,
+                  sponsorship_brochure_file: undefined
+                });
+                setMediaPreviews([]);
+              }}
+              className="flex items-center space-x-1 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] transition-colors"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Create Event</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-800">Total Events</h3>
+                <div className="p-2 bg-blue-100 rounded-full">
+                  <Calendar className="w-5 h-5 text-blue-600" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{opportunities.length}</p>
+              <div className="flex items-center mt-2 text-sm">
+                <span className="text-gray-500">
+                  {opportunities.filter(o => o.status === 'active').length} active
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {pendingMatches.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
-                    Pending Response
-                  </h3>
-                  <div className="space-y-3">
-                    {pendingMatches.map(match => (
-                      <div key={match.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <div className="flex flex-col sm:flex-row justify-between">
-                          <div className="mb-2 sm:mb-0">
-                            <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
-                                Pending
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Interested in: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
-                            </p>
-                            {match.profiles?.industry && (
-                              <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
-                            )}
-                            {match.profiles?.contact_person_name && (
-                              <p className="text-sm text-gray-600">
-                                Contact: {match.profiles.contact_person_name}
-                                {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
-                              </p>
-                            )}
-                            <p className="text-sm text-gray-600">
-                              Received: {new Date(match.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => updateMatchStatus(match.id, 'accepted')}
-                              disabled={processingMatches[match.id]?.accept}
-                              className={`px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center ${
-                                processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                            >
-                              {processingMatches[match.id]?.accept ? (
-                                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <Check className="w-4 h-4 mr-1" />
-                              )}
-                              Accept
-                            </button>
-                            <button
-                              onClick={() => updateMatchStatus(match.id, 'rejected')}
-                              disabled={processingMatches[match.id]?.decline}
-                              className={`px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center ${
-                                processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
-                              }`}
-                            >
-                              {processingMatches[match.id]?.decline ? (
-                                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
-                              ) : (
-                                <X className="w-4 h-4 mr-1" />
-                              )}
-                              Decline
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
 
-              {acceptedMatches.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
-                    Accepted Matches
-                  </h3>
-                  <div className="space-y-3">
-                    {acceptedMatches.map(match => (
-                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                        <div className="flex flex-col sm:flex-row justify-between items-start">
-                          <div className="mb-2 sm:mb-0">
-                            <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
-                                Accepted
-                              </span>
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-800">Pending Matches</h3>
+                <div className="p-2 bg-yellow-100 rounded-full">
+                  <Clock className="w-5 h-5 text-yellow-600" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{pendingMatches.length}</p>
+              <div className="flex items-center mt-2 text-sm">
+                <span className="text-gray-500">Awaiting your response</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-800">Accepted Matches</h3>
+                <div className="p-2 bg-green-100 rounded-full">
+                  <Check className="w-5 h-5 text-green-600" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{acceptedMatches.length}</p>
+              <div className="flex items-center mt-2 text-sm">
+                <span className="text-gray-500">Confirmed partnerships</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-800">Rejected Matches</h3>
+                <div className="p-2 bg-red-100 rounded-full">
+                  <X className="w-5 h-5 text-red-600" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-gray-900">{rejectedMatches.length}</p>
+              <div className="flex items-center mt-2 text-sm">
+                <span className="text-gray-500">Declined partnerships</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-6 border-b border-gray-200">
+            <div className="flex space-x-8">
+              <button
+                onClick={() => setActiveTab('opportunities')}
+                className={`py-2 px-1 -mb-px font-medium text-sm ${
+                  activeTab === 'opportunities'
+                    ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Your Events
+              </button>
+              <button
+                onClick={() => setActiveTab('matches')}
+                className={`py-2 px-1 -mb-px font-medium text-sm ${
+                  activeTab === 'matches'
+                    ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Brand Matches {pendingMatches.length > 0 && (
+                  <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                    {pendingMatches.length} new
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {activeTab === 'opportunities' && (
+            <>
+              {opportunities.length === 0 ? (
+                <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                    <PlusCircle className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-medium text-gray-800 mb-2">No events yet</h3>
+                  <p className="text-gray-600 mb-4">
+                    Create your first event to start connecting with brands.
+                  </p>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+                  >
+                    Create Event
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {opportunities.map((opportunity) => {
+                    const opportunityMatches = getMatchesForOpportunity(opportunity.id);
+                    const isExpanded = expandedMatches[opportunity.id] || false;
+                    return (
+                      <div key={opportunity.id} className="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div className="p-4 sm:p-6">
+                          <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
+                            <div className="mb-4 sm:mb-0">
+                              <div className="flex flex-wrap items-center mb-1">
+                                <h3 className="text-lg sm:text-xl font-bold text-gray-800 mr-2">{opportunity.title}</h3>
+                                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                  opportunity.status === 'active' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {opportunity.status === 'active' ? 'Active' : 'Paused'}
+                                </span>
+                                <span className="ml-2">
+                                  {getVerificationStatusBadge(opportunity.verification_status)}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600">{getCategoryName(opportunity.category_id)}</p>
                             </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Event: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
-                            </p>
-                            {match.profiles?.industry && (
-                              <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
-                            )}
-                            {match.profiles?.contact_person_name && (
-                              <p className="text-sm text-gray-600">
-                                Contact: {match.profiles.contact_person_name}
-                                {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
-                              </p>
-                            )}
-                            {match.meeting_scheduled_at && (
-                              <p className="text-sm text-gray-600 flex items-center">
-                                <Calendar className="w-4 h-4 mr-1" />
-                                Meeting: {new Date(match.meeting_scheduled_at).toLocaleString()}
-                              </p>
-                            )}
-                            {match.meeting_link ? (
-                              <p className="text-sm text-[#2B4B9B] flex items-center mt-1">
-                                <LinkIcon className="w-4 h-4 mr-1" />
-                                <a href={match.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                  Join Meeting
-                                </a>
-                              </p>
-                            ) : (
-                              <p className="text-sm text-gray-600 flex items-center mt-1">
-                                <Calendar className="w-4 h-4 mr-1" />
-                                Our team will schedule a meeting soon
-                              </p>
-                            )}
-                            {match.notes && (
-                              <p className="text-sm text-gray-600 flex items-start mt-1">
-                                <FileIcon className="w-4 h-4 mr-1 mt-1" />
-                                Notes: {match.notes}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex space-x-2">
-                            {match.meeting_link && match.meeting_scheduled_at ? (
-                              <a
-                                href={generateGoogleCalendarLink(match)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleViewAnalytics(opportunity.id)}
+                                className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                                title="View Analytics"
                               >
+                                <BarChart3 className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => toggleOpportunityStatus(opportunity.id, opportunity.status)}
+                                className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                                title={opportunity.status === 'active' ? 'Pause Event' : 'Activate Event'}
+                                disabled={opportunity.verification_status !== 'approved'}
+                              >
+                                {opportunity.status === 'active' ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                              </button>
+                              <button
+                                onClick={() => handleEdit(opportunity)}
+                                className="p-2 text-gray-500 hover:text-gray-700 rounded-full hover:bg-gray-100"
+                                title="Edit Event"
+                              >
+                                <Edit className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(opportunity.id)}
+                                className="p-2 text-gray-500 hover:text-red-500 rounded-full hover:bg-gray-100"
+                                title="Delete Event"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {opportunity.verification_status === 'pending' && (
+                            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center">
+                              <AlertCircle className="w-5 h-5 text-yellow-500 mr-2 flex-shrink-0" />
+                              <p className="text-sm text-yellow-700">
+                                This event is pending verification by our team. It will be visible to brands once approved.
+                              </p>
+                            </div>
+                          )}
+
+                          {opportunity.verification_status === 'rejected' && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center">
+                              <AlertCircle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm text-red-700 font-medium">
+                                  This event was rejected during verification.
+                                </p>
+                                {opportunity.rejection_reason && (
+                                  <p className="text-sm text-red-700 mt-1">
+                                    Reason: {opportunity.rejection_reason}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            <div className="flex items-center">
+                              <MapPin className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                              <span className="text-sm text-gray-600 truncate">{opportunity.location}</span>
+                            </div>
+                            
+                            {opportunity.start_date && (
+                              <div className="flex items-center">
+                                <Calendar className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                                <span className="text-sm text-gray-600 truncate">
+                                  {opportunity.end_date &&
+                                  new Date(opportunity.start_date).toDateString() ===
+                                  new Date(opportunity.end_date).toDateString()
+                                    ? new Date(opportunity.start_date).toLocaleDateString()
+                                    : `${new Date(opportunity.start_date).toLocaleDateString()}${
+                                        opportunity.end_date
+                                          ? ` - ${new Date(opportunity.end_date).toLocaleDateString()}`
+                                          : ''
+                                      }`}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {opportunity.reach && (
+                              <div className="flex items-center">
+                                <Users className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                                <span className="text-sm text-gray-600">{opportunity.reach.toLocaleString()} reach</span>
+                              </div>
+                            )}
+                            
+                            {opportunity.price_range && (
+                              <div className="flex items-center">
+                                <DollarSign className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                                <span className="text-sm text-gray-600 truncate">
+                                  {typeof opportunity.price_range === 'object' 
+                                    ? `₹${opportunity.price_range.min} - ₹${opportunity.price_range.max}`
+                                    : 'Contact for pricing'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {opportunity.calendly_link && (
+                              <div className="flex items-center text-sm text-[#2B4B9B]">
                                 <Calendar className="w-4 h-4 mr-1" />
-                                Add to Google Calendar
-                              </a>
-                            ) : null}
+                                <span>Calendly Link Available</span>
+                              </div>
+                            )}
+                            
+                            {opportunity.sponsorship_brochure_url && (
+                              <div className="flex items-center text-sm text-[#2B4B9B]">
+                                <LinkIcon className="w-4 h-4 mr-1" />
+                                <a href={opportunity.sponsorship_brochure_url} target="_blank" rel="noopener noreferrer" className="underline">
+                                  Sponsorship Brochure Available
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                          {opportunity.media_urls && opportunity.media_urls.length > 0 && (
+                            <div className="mt-4">
+                              <h4 className="text-sm font-medium text-gray-700">Media:</h4>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {opportunity.media_urls.map((url, index) => (
+                                  <img
+                                    key={index}
+                                    src={url}
+                                    alt={`Media ${index + 1}`}
+                                    className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
+                                    onError={(e) => console.error('Error loading image:', url)}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          <p className="text-gray-600 mb-4">{opportunity.description}</p>
+                          
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                            <div className="flex items-center mb-2 sm:mb-0">
+                              <span className="text-sm font-medium text-gray-700 mr-2">
+                                {opportunityMatches.length} {opportunityMatches.length === 1 ? 'match' : 'matches'}
+                              </span>
+                              {opportunityMatches.length > 0 && (
+                                <button
+                                  onClick={() => toggleMatchExpand(opportunity.id)}
+                                  className="text-[#2B4B9B] hover:text-[#1a2f61] text-sm flex items-center"
+                                >
+                                  {isExpanded ? 'Hide' : 'View'} 
+                                  {isExpanded ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        
+                        {isExpanded && opportunityMatches.length > 0 && (
+                          <div className="border-t border-gray-200 p-4 bg-gray-50">
+                            <h4 className="font-medium text-gray-800 mb-2">Matches</h4>
+                            <div className="space-y-3">
+                              {opportunityMatches.map((match) => (
+                                <div key={match.id} className="bg-white p-3 rounded border border-gray-200">
+                                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                    <div className="mb-2 sm:mb-0">
+                                      <p className="font-medium">{match.profiles?.company_name || 'Unknown Company'}</p>
+                                      <p className="text-sm text-gray-600">
+                                        Status: <span className={`font-medium ${
+                                          match.status === 'pending' ? 'text-yellow-600' :
+                                          match.status === 'accepted' ? 'text-green-600' :
+                                          match.status === 'rejected' ? 'text-red-600' : 'text-gray-600'
+                                        }`}>
+                                          {match.status.charAt(0).toUpperCase() + match.status.slice(1)}
+                                        </span>
+                                      </p>
+                                      {match.profiles?.contact_person_name && (
+                                        <p className="text-sm text-gray-600 truncate">
+                                          Contact: {match.profiles.contact_person_name}
+                                          {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
+                                        </p>
+                                      )}
+                                      {match.profiles?.email && (
+                                        <p className="text-sm text-gray-600 truncate">
+                                          Email: {match.profiles.email}
+                                        </p>
+                                      )}
+                                    </div>
+                                    
+                                    {match.status === 'pending' && (
+                                      <div className="flex space-x-2">
+                                        <button
+                                          onClick={() => updateMatchStatus(match.id, 'accepted')}
+                                          disabled={processingMatches[match.id]?.accept}
+                                          className={`p-1.5 bg-green-100 text-green-600 rounded-full hover:bg-green-200 ${
+                                            processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
+                                          }`}
+                                          title="Accept Match"
+                                        >
+                                          {processingMatches[match.id]?.accept ? (
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                          ) : (
+                                            <Check className="w-4 h-4" />
+                                          )}
+                                        </button>
+                                        <button
+                                          onClick={() => updateMatchStatus(match.id, 'rejected')}
+                                          disabled={processingMatches[match.id]?.decline}
+                                          className={`p-1.5 bg-red-100 text-red-600 rounded-full hover:bg-red-200 ${
+                                            processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
+                                          }`}
+                                          title="Reject Match"
+                                        >
+                                          {processingMatches[match.id]?.decline ? (
+                                            <RefreshCw className="w-4 h-4 animate-spin" />
+                                          ) : (
+                                            <X className="w-4 h-4" />
+                                          )}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
               )}
+            </>
+          )}
 
-              {rejectedMatches.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
-                    <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
-                    Declined Matches
-                  </h3>
-                  <div className="space-y-3">
-                    {rejectedMatches.map(match => (
-                      <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4 opacity-70">
-                        <div className="flex flex-col sm:flex-row justify-between">
-                          <div>
-                            <div className="flex items-center">
-                              <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
-                              <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">
-                                Declined
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-1">
-                              Event: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
-                            </p>
-                            {match.profiles?.industry && (
-                              <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
-                            )}
-                            <p className="text-sm text-gray-600">
-                              Declined on: {new Date(match.updated_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+          {activeTab === 'matches' && (
+            <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-6">Brand Matches</h2>
+              <button
+                onClick={fetchMatches}
+                className="mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Matches
+              </button>
+              
+              {matches.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                    <Users className="w-8 h-8 text-gray-400" />
                   </div>
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">No matches yet</h3>
+                  <p className="text-gray-500">
+                    When brands express interest in your events, they'll appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {pendingMatches.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
+                        <span className="w-2 h-2 bg-yellow-400 rounded-full mr-2"></span>
+                        Pending Response
+                      </h3>
+                      <div className="space-y-3">
+                        {pendingMatches.map(match => (
+                          <div key={match.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <div className="flex flex-col sm:flex-row justify-between">
+                              <div className="mb-2 sm:mb-0">
+                                <div className="flex items-center">
+                                  <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                                  <span className="ml-2 px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                                    Pending
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Interested in: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
+                                </p>
+                                {match.profiles?.industry && (
+                                  <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
+                                )}
+                                {match.profiles?.contact_person_name && (
+                                  <p className="text-sm text-gray-600">
+                                    Contact: {match.profiles.contact_person_name}
+                                    {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
+                                  </p>
+                                )}
+                                <p className="text-sm text-gray-600">
+                                  Received: {new Date(match.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => updateMatchStatus(match.id, 'accepted')}
+                                  disabled={processingMatches[match.id]?.accept}
+                                  className={`px-3 py-1 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 flex items-center ${
+                                    processingMatches[match.id]?.accept ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                >
+                                  {processingMatches[match.id]?.accept ? (
+                                    <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <Check className="w-4 h-4 mr-1" />
+                                  )}
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => updateMatchStatus(match.id, 'rejected')}
+                                  disabled={processingMatches[match.id]?.decline}
+                                  className={`px-3 py-1 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 flex items-center ${
+                                    processingMatches[match.id]?.decline ? 'opacity-50 cursor-not-allowed' : ''
+                                  }`}
+                                >
+                                  {processingMatches[match.id]?.decline ? (
+                                    <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                                  ) : (
+                                    <X className="w-4 h-4 mr-1" />
+                                  )}
+                                  Decline
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {acceptedMatches.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
+                        <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+                        Accepted Matches
+                      </h3>
+                      <div className="space-y-3">
+                        {acceptedMatches.map(match => (
+                          <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex flex-col sm:flex-row justify-between items-start">
+                              <div className="mb-2 sm:mb-0">
+                                <div className="flex items-center">
+                                  <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                                  <span className="ml-2 px-2 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                                    Accepted
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Event: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
+                                </p>
+                                {match.profiles?.industry && (
+                                  <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
+                                )}
+                                {match.profiles?.contact_person_name && (
+                                  <p className="text-sm text-gray-600">
+                                    Contact: {match.profiles.contact_person_name}
+                                    {match.profiles.contact_person_phone && ` (${match.profiles.contact_person_phone})`}
+                                  </p>
+                                )}
+                                {match.meeting_scheduled_at && (
+                                  <p className="text-sm text-gray-600 flex items-center">
+                                    <Calendar className="w-4 h-4 mr-1" />
+                                    Meeting: {new Date(match.meeting_scheduled_at).toLocaleString()}
+                                  </p>
+                                )}
+                                {match.meeting_link ? (
+                                  <p className="text-sm text-[#2B4B9B] flex items-center mt-1">
+                                    <LinkIcon className="w-4 h-4 mr-1" />
+                                    <a href={match.meeting_link} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                      Join Meeting
+                                    </a>
+                                  </p>
+                                ) : (
+                                  <p className="text-sm text-gray-600 flex items-center mt-1">
+                                    <Calendar className="w-4 h-4 mr-1" />
+                                    Our team will schedule a meeting soon
+                                  </p>
+                                )}
+                                {match.notes && (
+                                  <p className="text-sm text-gray-600 flex items-start mt-1">
+                                    <FileIcon className="w-4 h-4 mr-1 mt-1" />
+                                    Notes: {match.notes}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex space-x-2">
+                                {match.meeting_link && match.meeting_scheduled_at ? (
+                                  <a
+                                    href={generateGoogleCalendarLink(match)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center"
+                                  >
+                                    <Calendar className="w-4 h-4 mr-1" />
+                                    Add to Google Calendar
+                                  </a>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {rejectedMatches.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 mb-3 flex items-center">
+                        <span className="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
+                        Declined Matches
+                      </h3>
+                      <div className="space-y-3">
+                        {rejectedMatches.map(match => (
+                          <div key={match.id} className="bg-white border border-gray-200 rounded-lg p-4 opacity-70">
+                            <div className="flex flex-col sm:flex-row justify-between">
+                              <div>
+                                <div className="flex items-center">
+                                  <h4 className="font-medium text-gray-800">{match.profiles?.company_name || 'Unknown Company'}</h4>
+                                  <span className="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-800 rounded-full">
+                                    Declined
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Event: <span className="font-medium">{match.opportunities?.title || 'Unknown Event'}</span>
+                                </p>
+                                {match.profiles?.industry && (
+                                  <p className="text-sm text-gray-600">Industry: {match.profiles.industry}</p>
+                                )}
+                                <p className="text-sm text-gray-600">
+                                  Declined on: {new Date(match.updated_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
