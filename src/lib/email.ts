@@ -1,6 +1,10 @@
 import emailjs from '@emailjs/browser';
 import toast from 'react-hot-toast';
 
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+const SERVICE_ID_To_EVENTORG = import.meta.env.VITE_EMAILJS_SERVICE_ID_To_EVENTORG;
+const TEMPLATE_ID_To_EVENTORG = import.meta.env.VITE_EMAILJS_TEMPLATE_ID_To_EVENTORG;
+
 export const sendContactEmail = async (formData: {
   name: string;
   email: string;
@@ -56,32 +60,16 @@ export const sendMatchNotification = async (
   try {
     // Send notification to event organizer
     await emailjs.send(
-      'service_f8hd0bm',
-      'template_match_notification',
+      SERVICE_ID_To_EVENTORG,
+      TEMPLATE_ID_To_EVENTORG,
       {
         to_email: organizerEmail,
         brand_name: brandName,
         brand_email: brandEmail,
         event_title: eventTitle,
       },
-      'qZ4Yui6OPsXT6U99A'
+      EMAILJS_PUBLIC_KEY
     );
-
-    // Send details to brand
-    await emailjs.send(
-      'service_f8hd0bm',
-      'template_match_details',
-      {
-        to_email: brandEmail,
-        brand_name: brandName,
-        event_title: eventTitle,
-        event_organizer: eventOrganizer,
-        calendly_link: calendlyLink || 'Not available',
-        brochure_url: brochureUrl || 'Not available',
-      },
-      'qZ4Yui6OPsXT6U99A'
-    );
-
     toast.success('Match notification sent successfully');
     return true;
   } catch (error) {
