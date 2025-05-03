@@ -617,7 +617,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   if (showAnalytics && selectedAnalyticsId) {
     return (
-      <div>
+      <div className="pb-14 sm:pb-0">
         <button
           onClick={() => {
             setShowAnalytics(false);
@@ -634,7 +634,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   }
 
   return (
-    <div>
+    <div className="pb-14 sm:pb-0">
       <Modal
         isOpen={showDeleteModal}
         onClose={handleDeleteCancel}
@@ -705,7 +705,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
           <p className="text-3xl font-bold text-gray-900">{pendingMatches.length}</p>
           <div className="flex items-center mt-2 text-sm">
             <span className="text-gray-500">Awaiting your response</span>
-          </ div>
+          </div>
         </div>
 
         <div className="bg-white p-6 rounded-lg shadow-sm">
