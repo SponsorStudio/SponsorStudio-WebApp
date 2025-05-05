@@ -8,6 +8,7 @@ import Cropper from 'react-easy-crop';
 import { Area } from 'react-easy-crop/types';
 import { CustomModal } from '../../components/CustomModal';
 import toast from 'react-hot-toast';
+import emailjs from '@emailjs/browser';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -46,17 +47,21 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       locations: [],
       income_level: ''
     },
-    phone_number_verified: profile?.phone_number_verified || false
+    phone_number_verified: profile?.phone_number_verified || false,
+    email_verified: profile?.email_verified || false
   });
   const [previewImage, setPreviewImage] = useState<string | null>(formData.profile_picture_url || null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [emailVerificationPrompt, setEmailVerificationPrompt] = useState(false);
-  const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [otpLoading, setOtpLoading] = useState(false);
+  const [showEmailOtpPopup, setShowEmailOtpPopup] = useState(false);
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+  const [generatedEmailOtp, setGeneratedEmailOtp] = useState<string | null>(null);
+  const [showPhoneOtpPopup, setShowPhoneOtpPopup] = useState(false);
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -64,6 +69,108 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const generateOtp = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  };
+
+  const sendEmailOtp = async () => {
+    if (!formData.email) {
+      setError('Please enter an email address');
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Invalid email format');
+      toast.error('Invalid email format');
+      return;
+    }
+
+    setEmailOtpLoading(true);
+
+    try {
+      const otp = generateOtp();
+      setGeneratedEmailOtp(otp);
+
+      const templateParams = {
+        to_email: formData.email,
+        otp: otp
+      };
+
+      await emailjs.send(
+        import.meta.env.VITE_EMAILJS_SERVICE_ID_EMAIL_VERIFY,
+        import.meta.env.VITE_EMAILJS_TEMPLATE_ID_EMAIL_VERIFY,
+        templateParams,
+        import.meta.env.VITE_EMAILJS_PUBLIC_KEY_EMAIL_VERIFY
+      );
+
+      setShowEmailOtpPopup(true);
+      toast.success('OTP sent to your email!');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send email OTP';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    if (!emailOtp) {
+      setError('Please enter the OTP');
+      toast.error('Please enter the OTP');
+      return;
+    }
+
+    setEmailOtpLoading(true);
+
+    try {
+      if (emailOtp !== generatedEmailOtp) {
+        throw new Error('Invalid OTP');
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          email_verified: true,
+          email: formData.email
+        })
+        .eq('id', user?.id);
+
+      if (updateError) {
+        throw new Error('Failed to update profile: ' + updateError.message);
+      }
+
+      if (formData.email !== user?.email) {
+        const { error: authError } = await supabase.auth.updateUser({
+          email: formData.email
+        });
+        if (authError) {
+          throw new Error(`Failed to update authentication email: ${authError.message}`);
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        email_verified: true,
+        email: formData.email
+      }));
+      setShowEmailOtpPopup(false);
+      setEmailOtp('');
+      setGeneratedEmailOtp(null);
+      setSuccess(true);
+      toast.success('Email verified successfully!');
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to verify OTP';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setEmailOtpLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     setShowLogoutModal(true);
@@ -343,14 +450,14 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     }
   };
 
-  const sendOtp = async () => {
+  const sendPhoneOtp = async () => {
     if (!formData.contact_person_phone) {
       setError('Please enter a phone number');
       toast.error('Please enter a phone number');
       return;
     }
 
-    setOtpLoading(true);
+    setPhoneOtpLoading(true);
 
     try {
       const response = await fetch(import.meta.env.VITE_TWILIO_API_URL + '/api/twilio/send-otp', {
@@ -365,23 +472,23 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         throw new Error('Failed to send OTP');
       }
 
-      setShowOtpPopup(true);
+      setShowPhoneOtpPopup(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send OTP');
       toast.error(err instanceof Error ? err.message : 'Failed to send OTP');
     } finally {
-      setOtpLoading(false);
+      setPhoneOtpLoading(false);
     }
   };
 
-  const verifyOtp = async () => {
-    if (!otp) {
+  const verifyPhoneOtp = async () => {
+    if (!phoneOtp) {
       setError('Please enter the OTP');
       toast.error('Please enter the OTP');
       return;
     }
 
-    setOtpLoading(true);
+    setPhoneOtpLoading(true);
 
     try {
       const response = await fetch(import.meta.env.VITE_TWILIO_API_URL + '/api/twilio/verify-otp', {
@@ -391,7 +498,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         },
         body: JSON.stringify({
           phone: formData.contact_person_phone,
-          code: otp,
+          code: phoneOtp,
         }),
       });
 
@@ -416,8 +523,8 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         phone_number_verified: true,
         contact_person_phone: formData.contact_person_phone
       }));
-      setShowOtpPopup(false);
-      setOtp('');
+      setShowPhoneOtpPopup(false);
+      setPhoneOtp('');
       setSuccess(true);
       toast.success('Phone number verified successfully!');
       setTimeout(() => setSuccess(false), 3000);
@@ -425,7 +532,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       setError(err instanceof Error ? err.message : 'Failed to verify OTP');
       toast.error(err instanceof Error ? err.message : 'Failed to verify OTP');
     } finally {
-      setOtpLoading(false);
+      setPhoneOtpLoading(false);
     }
   };
 
@@ -434,33 +541,18 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
     setLoading(true);
     setError('');
     setSuccess(false);
-    setEmailVerificationPrompt(false);
 
     try {
       const emailChanged = formData.email !== profile?.email;
 
-      if (emailChanged) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.email)) {
-          throw new Error('Invalid email format');
-        }
-
-        console.log('Updating auth email to:', formData.email);
-        const { error: authError } = await supabase.auth.updateUser({
-          email: formData.email
-        });
-
-        if (authError) {
-          throw new Error(`Failed to update authentication email: ${authError.message}`);
-        }
-
-        setEmailVerificationPrompt(true);
+      if (emailChanged && !formData.email_verified) {
+        await sendEmailOtp();
+      } else {
+        console.log('Updating profile with full formData:', formData);
+        await updateProfile(formData);
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 3000);
       }
-
-      console.log('Updating profile with full formData:', formData);
-      await updateProfile(formData);
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
     } catch (err: any) {
       console.error('Submit error:', err);
       const errorMessage = err.message.includes('Failed to update profile') && err.cause
@@ -489,15 +581,6 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         <div className="mb-6 p-4 bg-green-100 text-green-700 rounded-lg flex items-center justify-between">
           <span>Profile updated successfully!</span>
           <button onClick={() => setSuccess(false)} className="text-green-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-      {emailVerificationPrompt && (
-        <div className="mb-6 p-4 bg-blue-100 text-blue-700 rounded-lg flex items-center justify-between">
-          <span>Please check your new email ({formData.email}) to verify the change.</span>
-          <button onClick={() => setEmailVerificationPrompt(false)} className="text-blue-700">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -714,16 +797,29 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
             <div className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email Address
+                  Email Address {formData.email_verified && <span className="text-green-600 text-xs">(Verified)</span>}
                 </label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
-                />
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={true}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed"
+                  />
+                  {!formData.email_verified && (
+                    <button
+                      type="button"
+                      onClick={sendEmailOtp}
+                      disabled={emailOtpLoading}
+                      className="px-3 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50"
+                    >
+                      {emailOtpLoading ? 'Sending...' : 'Verify'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -772,11 +868,11 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
                   {!formData.phone_number_verified && (
                     <button
                       type="button"
-                      onClick={sendOtp}
-                      disabled={otpLoading || !formData.contact_person_phone}
+                      onClick={sendPhoneOtp}
+                      disabled={phoneOtpLoading || !formData.contact_person_phone}
                       className="px-3 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50"
                     >
-                      {otpLoading ? 'Sending...' : 'Verify'}
+                      {phoneOtpLoading ? 'Sending...' : 'Verify'}
                     </button>
                   )}
                 </div>
@@ -1046,10 +1142,53 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
       </form>
 
       <CustomModal
-        isOpen={showOtpPopup}
-        onClose={() => setShowOtpPopup(false)}
+        isOpen={showEmailOtpPopup}
+        onClose={() => {
+          setShowEmailOtpPopup(false);
+          setEmailOtp('');
+          setGeneratedEmailOtp(null);
+        }}
+        title="Verify Email Address"
+        customStyles={{ maxWidth: '28rem', height: '15.5rem', width: '90%' }}
+      >
+        <div>
+          <p className="text-sm text-gray-600 mb-4">
+            An OTP has been sent to {formData.email}. Please enter it below.
+          </p>
+          <input
+            type="text"
+            value={emailOtp}
+            onChange={(e) => setEmailOtp(e.target.value)}
+            placeholder="Enter OTP"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] mb-4"
+          />
+          <div className="flex justify-end space-x-2">
+            <button
+              onClick={() => {
+                setShowEmailOtpPopup(false);
+                setEmailOtp('');
+                setGeneratedEmailOtp(null);
+              }}
+              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={verifyEmailOtp}
+              disabled={emailOtpLoading}
+              className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50"
+            >
+              {emailOtpLoading ? 'Verifying...' : 'Verify OTP'}
+            </button>
+          </div>
+        </div>
+      </CustomModal>
+
+      <CustomModal
+        isOpen={showPhoneOtpPopup}
+        onClose={() => setShowPhoneOtpPopup(false)}
         title="Verify Phone Number"
-        customStyles={{ maxWidth: '28rem', height: '15.5rem' ,width:'90%'}}
+        customStyles={{ maxWidth: '28rem', height: '15.5rem', width: '90%' }}
       >
         <div>
           <p className="text-sm text-gray-600 mb-4">
@@ -1057,24 +1196,24 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           </p>
           <input
             type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value)}
+            value={phoneOtp}
+            onChange={(e) => setPhoneOtp(e.target.value)}
             placeholder="Enter OTP"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] mb-4"
           />
           <div className="flex justify-end space-x-2">
             <button
-              onClick={() => setShowOtpPopup(false)}
+              onClick={() => setShowPhoneOtpPopup(false)}
               className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
             >
               Cancel
             </button>
             <button
-              onClick={verifyOtp}
-              disabled={otpLoading}
+              onClick={verifyPhoneOtp}
+              disabled={phoneOtpLoading}
               className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] disabled:opacity-50"
             >
-              {otpLoading ? 'Verifying...' : 'Verify OTP'}
+              {phoneOtpLoading ? 'Verifying...' : 'Verify OTP'}
             </button>
           </div>
         </div>
@@ -1085,7 +1224,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
           isOpen={showCropper}
           onClose={resetFileInput}
           title="Crop Profile Picture"
-          customStyles={{ maxWidth: '32rem', height: 'auto' ,width: '90%'}}
+          customStyles={{ maxWidth: '32rem', height: 'auto', width: '90%' }}
         >
           <div>
             <div className="relative w-full h-80">
@@ -1149,7 +1288,7 @@ export default function ProfileSettings({ profile }: ProfileSettingsProps) {
         isOpen={showLogoutModal}
         onClose={() => setShowLogoutModal(false)}
         title="Confirm Logout"
-        customStyles={{ maxWidth: '28rem', height: '11rem',width: '90%' }}
+        customStyles={{ maxWidth: '28rem', height: '11rem', width: '90%' }}
       >
         <div>
           <p className="text-sm text-gray-600 mb-4">
