@@ -51,10 +51,9 @@ export async function signUp(email: string, password: string, userType: Profile[
 
     if (authError) {
       if (authError.message.includes('already registered')) {
-        toast.error('This email is already registered');
         throw new Error('This email is already registered');
       }
-      toast.error(authError.message);
+      // toast.error(authError.message);
       throw authError;
     }
 
@@ -109,7 +108,6 @@ export async function signIn(email: string, password: string) {
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        toast.error('Invalid email or password');
         throw new Error('Invalid email or password');
       }
       toast.error(error.message);
