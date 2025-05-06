@@ -10,6 +10,8 @@ import type { Database } from './lib/database.types';
 import Marquee from 'react-fast-marquee';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -417,6 +419,7 @@ const App: React.FC = () => {
   const [clientLogos, setClientLogos] = useState<ClientLogo[]>([]);
   const [successStories, setSuccessStories] = useState<SuccessStory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showAllStories, setShowAllStories] = useState(false);
   const [showAuthForm, setShowAuthForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -433,6 +436,8 @@ const App: React.FC = () => {
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    console.log('App mounted', { user, profile, isProfileComplete, showProfileDialog });
+    
     gsap.fromTo(
       navRef.current,
       { y: -100, opacity: 0 },
@@ -449,18 +454,25 @@ const App: React.FC = () => {
     }
 
     if (mobileMenuButtonRef.current) {
-      signInButtonRef.current.addEventListener('mouseenter', () => {
+      mobileMenuButtonRef.current.addEventListener('mouseenter', () => {
         gsap.to(mobileMenuButtonRef.current, { scale: 1.1, duration: 0.2, ease: 'power2.out' });
       });
-      signInButtonRef.current.addEventListener('mouseleave', () => {
+      mobileMenuButtonRef.current.addEventListener('mouseleave', () => {
         gsap.to(mobileMenuButtonRef.current, { scale: 1, duration: 0.2, ease: 'power2.out' });
       });
     }
 
     const fetchData = async () => {
       setLoading(true);
-      await Promise.all([fetchClientLogos(), fetchSuccessStories()]);
-      setLoading(false);
+      setError(null);
+      try {
+        await Promise.all([fetchClientLogos(), fetchSuccessStories()]);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load data. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
     };
     fetchData();
 
@@ -480,8 +492,9 @@ const App: React.FC = () => {
     const { data, error } = await supabase.from('client_logos').select('*');
     if (error) {
       console.error('Error fetching client logos:', error);
-      return;
+      throw error;
     }
+    console.log('Client logos fetched:', data);
     setClientLogos(data || []);
   };
 
@@ -489,10 +502,28 @@ const App: React.FC = () => {
     const { data, error } = await supabase.from('success_stories').select('*');
     if (error) {
       console.error('Error fetching success stories:', error);
-      return;
+      throw error;
     }
+    console.log('Success stories fetched:', data);
     setSuccessStories(data || []);
   };
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600">Error</h2>
+          <p className="mt-2 text-gray-600">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1F3A7A]"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -688,8 +719,10 @@ const App: React.FC = () => {
           </div>
           <div className="mt-16">
             {loading ? (
-              <div className="flex justify-center">
-                <div className="animate-spin h-8 w-8 border-4 border-[#2B4B9B] border-t-transparent rounded-full" />
+              <div className="flex justify-center space-x-4">
+                {Array(5).fill(0).map((_, i) => (
+                  <Skeleton key={i} width={100} height={56} className="md:h-16" />
+                ))}
               </div>
             ) : (
               <Marquee gradient={true} gradientColor={[249, 250, 252]} speed={40} pauseOnHover={true}>
@@ -710,9 +743,16 @@ const App: React.FC = () => {
           </div>
           <div className="mt-16 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {loading ? (
-              Array(3)
-                .fill(0)
-                .map((_, i) => <div key={i} className="animate-pulse bg-gray-200 h-64 rounded-lg" />)
+              Array(3).fill(0).map((_, i) => (
+                <div key={i} className="flex flex-col rounded-lg shadow-lg bg-white">
+                  <Skeleton height={192} />
+                  <div className="p-6">
+                    <Skeleton width="80%" height={24} className="mb-3" />
+                    <Skeleton count={2} height={16} className="mb-2" />
+                    <Skeleton width={100} height={16} />
+                  </div>
+                </div>
+              ))
             ) : (
               (showAllStories ? successStories : successStories.slice(0, 3)).map((story) => (
                 <SuccessStoryCard key={story.id} story={story} />
@@ -723,7 +763,7 @@ const App: React.FC = () => {
             <div className="mt-10 text-center">
               <button
                 onClick={() => setShowAllStories(!showAllStories)}
-                className="inline-flex items-center px-6 py-3 border border-[#2B4B9B] text-[#2B9B] rounded-full hover:bg-[#2B4B9B] hover:text-white text-lg sm:text-base will-change-transform"
+                className="inline-flex items-center px-6 py-3 border border-[#2B4B9B] text-[#2B4B9B] rounded-full hover:bg-[#2B4B9B] hover:text-white text-lg sm:text-base will-change-transform"
               >
                 {showAllStories ? 'Show Less' : 'View All Stories'}
               </button>

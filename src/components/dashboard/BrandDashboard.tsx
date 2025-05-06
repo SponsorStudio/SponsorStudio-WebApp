@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { sendMatchNotification } from '../../lib/email';
 import type { Database } from '../../lib/database.types';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 type Opportunity = Database['public']['Tables']['opportunities']['Row'];
 type Category = Database['public']['Tables']['categories']['Row'];
@@ -318,8 +320,81 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#2B4B9B]"></div>
+      <div className="max-w-full overflow-x-hidden">
+        {/* Profile Completion Warning Skeleton */}
+        {!profile?.company_name && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <div className="flex items-start">
+              <Skeleton circle width={16} height={16} className="mt-0.5 mr-2" />
+              <div className="flex-1">
+                <Skeleton width={150} height={12} />
+                <Skeleton width="90%" height={12} className="mt-2" />
+                <Skeleton width={100} height={12} className="mt-2" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
+          <Skeleton width={200} height={24} />
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-2 mt-4 sm:mt-0">
+            <Skeleton width={80} height={32} />
+            <Skeleton width={200} height={32} />
+          </div>
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="mb-4 border-b border-gray-200">
+          <div className="flex flex-wrap gap-4 sm:gap-8">
+            <Skeleton width={120} height={20} />
+            <Skeleton width={150} height={20} />
+          </div>
+        </div>
+
+        {/* Discover Tab Skeleton */}
+        <div>
+          {/* Filter Section Skeleton */}
+          {showFilters && (
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm mb-4">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
+                <Skeleton width={150} height={16} />
+                <Skeleton width={100} height={16} />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                {Array(4).fill(0).map((_, index) => (
+                  <div key={index}>
+                    <Skeleton width={80} height={12} className="mb-1" />
+                    <Skeleton height={32} />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 sm:mt-4">
+                <Skeleton width={80} height={12} className="mb-1" />
+                <Skeleton height={32} />
+              </div>
+            </div>
+          )}
+
+          {/* Opportunity Card Skeleton */}
+          <div className="min-h-[400px] sm:min-h-[500px] bg-white rounded-lg shadow-sm overflow-hidden">
+            <Skeleton height={192} className="sm:h-64" />
+            <div className="p-4 sm:p-6">
+              <Skeleton width="80%" height={24} className="mb-2" />
+              <Skeleton width={120} height={16} className="mb-4" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+                <Skeleton width={150} height={16} />
+                <Skeleton width={150} height={16} />
+              </div>
+              <Skeleton width={100} height={16} className="mb-4" />
+              <Skeleton count={3} height={16} className="mb-2" />
+              <div className="flex justify-center gap-4 mt-4">
+                <Skeleton circle width={48} height={48} />
+                <Skeleton circle width={48} height={48} />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
