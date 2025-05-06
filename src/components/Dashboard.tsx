@@ -15,6 +15,8 @@ import CreatorDashboard from './dashboard/CreatorDashboard';
 import ProfileSettings from './dashboard/ProfileSettings';
 import ScheduledMeetings from './dashboard/ScheduledMeetings';
 import { signOut } from '../lib/auth';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 
 type ClientLogo = Database['public']['Tables']['client_logos']['Row'];
 type SuccessStory = Database['public']['Tables']['success_stories']['Row'];
@@ -130,8 +132,60 @@ export default function Dashboard() {
 
   if (loading || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#2B4B9B]"></div>
+      <div className="min-h-screen bg-gray-50 flex">
+        {/* Sidebar Skeleton (Desktop) */}
+        <div className="w-64 bg-white shadow-md hidden md:block fixed h-full p-6">
+          <Skeleton height={48} width={120} className="mb-6" />
+          <div className="flex items-center space-x-3 mb-8">
+            <Skeleton circle width={40} height={40} />
+            <div>
+              <Skeleton width={100} height={16} />
+              <Skeleton width={80} height={12} className="mt-2" />
+            </div>
+          </div>
+          <nav className="px-4">
+            <ul className="space-y-2">
+              {Array(5).fill(0).map((_, index) => (
+                <li key={index}>
+                  <Skeleton height={40} className="rounded-lg" />
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </div>
+
+        {/* Main Content Skeleton */}
+        <div className="flex-1 md:ml-64 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <Skeleton width={200} height={24} />
+            <Skeleton width={120} height={36} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {Array(4).fill(0).map((_, index) => (
+              <div key={index} className="bg-white p-6 rounded-lg shadow-sm">
+                <Skeleton height={20} width="60%" />
+                <Skeleton height={36} width="40%" className="mt-4" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-6">
+            {Array(3).fill(0).map((_, index) => (
+              <div key={index} className="bg-white rounded-lg shadow-sm p-6">
+                <Skeleton height={24} width="50%" className="mb-4" />
+                <Skeleton count={3} height={16} className="mb-2" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom Nav Skeleton (Mobile) */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-t z-50">
+          <div className="flex justify-around p-2">
+            {Array(4).fill(0).map((_, index) => (
+              <Skeleton key={index} circle width={32} height={32} />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
