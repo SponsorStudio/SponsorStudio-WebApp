@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -63,12 +63,36 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showFullDescription, setShowFullDescription] = useState(false);
 
+  // Track if this is the initial load and if a refresh has been attempted
+  const isInitialLoad = useRef(true);
+  const hasRefreshed = useRef(false);
+  const loadStartTime = useRef(Date.now());
+
   useEffect(() => {
     if (user) {
+      // Check if user is newly registered (e.g., profile is incomplete)
+      const isNewUser = !profile?.company_name;
+
+      // Set up a timer to check if loading exceeds 1.5 seconds
+      const timer = setTimeout(() => {
+        if (isInitialLoad.current && loading && isNewUser && !hasRefreshed.current) {
+          console.log('Initial load taking too long, triggering auto-refresh');
+          hasRefreshed.current = true;
+          window.location.reload();
+        }
+      }, 1500);
+
+      // Fetch data
       fetchCategories();
       fetchUserMatches();
+
+      // Clean up timer and mark initial load as complete
+      return () => {
+        clearTimeout(timer);
+        isInitialLoad.current = false;
+      };
     }
-  }, [user]);
+  }, [user, profile]);
 
   const fetchCategories = async () => {
     const { data, error } = await supabase
