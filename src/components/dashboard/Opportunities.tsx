@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
+import Modal from '../../components/Modal';
 import { 
   AlertTriangle, 
   Calendar, 
@@ -25,7 +26,10 @@ import {
   CalendarRange,
   FileText as FileIcon,
   ExternalLink,
-  Search
+  Search,
+  FileSpreadsheet,
+  Pause,
+  Trash2
 } from 'lucide-react';
 import type { Database } from '../../lib/database.types';
 
@@ -63,6 +67,9 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
   const [videoErrors, setVideoErrors] = useState<{ [key: string]: boolean }>({});
+  const [sheetLinkInput, setSheetLinkInput] = useState<{ [key: string]: string }>({});
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [opportunityToDelete, setOpportunityToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOpportunities();
@@ -300,6 +307,115 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
     }
   };
 
+  const handleUpdateSheetLink = async (id: string) => {
+    const sheetLink = sheetLinkInput[id]?.trim();
+    
+    // Validate URL
+    if (sheetLink && !/^https?:\/\/[^\s/$.?#].[^\s]*$/.test(sheetLink)) {
+      toast.error('Please enter a valid URL');
+      return;
+    }
+
+    try {
+      setProcessingAction(id);
+
+      const { error } = await supabase
+        .from('opportunities')
+        .update({ sheetlink: sheetLink || null })
+        .eq('id', id)
+        .eq('verification_status', 'approved');
+
+      if (error) throw error;
+
+      setOpportunities(prevOpportunities =>
+        prevOpportunities.map(opp =>
+          opp.id === id ? { ...opp, sheetlink: sheetLink || null } : opp
+        )
+      );
+
+      toast.success('Spreadsheet link updated successfully');
+      setSheetLinkInput(prev => ({ ...prev, [id]: '' }));
+
+    } catch (error) {
+      console.error('Error updating spreadsheet link:', error);
+      toast.error('Failed to update spreadsheet link');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleTogglePause = async (id: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+    
+    try {
+      setProcessingAction(id);
+
+      const { error } = await supabase
+        .from('opportunities')
+        .update({ status: newStatus })
+        .eq('id', id)
+        .eq('verification_status', 'approved');
+
+      if (error) throw error;
+
+      setOpportunities(prevOpportunities =>
+        prevOpportunities.map(opp =>
+          opp.id === id ? { ...opp, status: newStatus } : opp
+        )
+      );
+
+      toast.success(`Opportunity ${newStatus === 'paused' ? 'paused' : 'resumed'} successfully`);
+
+    } catch (error) {
+      console.error('Error toggling opportunity status:', error);
+      toast.error('Failed to update opportunity status');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setOpportunityToDelete(id);
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!opportunityToDelete) return;
+
+    try {
+      setProcessingAction(opportunityToDelete);
+
+      const { error } = await supabase
+        .from('opportunities')
+        .delete()
+        .eq('id', opportunityToDelete)
+        .eq('verification_status', 'approved');
+
+      if (error) throw error;
+
+      setOpportunities(prevOpportunities =>
+        prevOpportunities.filter(opp => opp.id !== opportunityToDelete)
+      );
+
+      setStats(prev => ({
+        ...prev,
+        approved: Math.max(0, prev.approved - 1),
+        total: Math.max(0, prev.total - 1)
+      }));
+
+      setExpandedOpportunity(null);
+      toast.success('Opportunity deleted successfully');
+
+    } catch (error) {
+      console.error('Error deleting opportunity:', error);
+      toast.error('Failed to delete opportunity');
+    } finally {
+      setProcessingAction(null);
+      setIsDeleteModalOpen(false);
+      setOpportunityToDelete(null);
+    }
+  };
+
   const handleRefresh = () => {
     fetchOpportunities();
   };
@@ -421,6 +537,8 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
                       <span className={`px-2 py-0.5 text-xs rounded-full ${
                         opportunity.status === 'active' 
                           ? 'bg-green-100 text-green-800' 
+                          : opportunity.status === 'paused'
+                          ? 'bg-yellow-100 text-yellow-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
                         {opportunity.status.charAt(0).toUpperCase() + opportunity.status.slice(1)}
@@ -523,6 +641,20 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
                               className="hover:underline flex items-center"
                             >
                               Sponsorship Brochure
+                              <ExternalLink size={12} className="ml-1" />
+                            </a>
+                          </div>
+                        )}
+                        {opportunity.sheetlink && (
+                          <div className="flex items-center text-sm text-[#2B4B9B]">
+                            <FileSpreadsheet size={16} className="mr-2 flex-shrink-0" />
+                            <a 
+                              href={opportunity.sheetlink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline flex items-center"
+                            >
+                              Spreadsheet Link
                               <ExternalLink size={12} className="ml-1" />
                             </a>
                           </div>
@@ -717,6 +849,55 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
                         </div>
                       </div>
                     )}
+                    {opportunity.verification_status?.trim().toLowerCase() === 'approved' && (
+                      <>
+                        <div className="mt-6">
+                          <h4 className="font-semibold text-gray-900 mb-4">Spreadsheet Link</h4>
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="text"
+                              className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                              value={sheetLinkInput[opportunity.id] || opportunity.sheetlink || ''}
+                              onChange={(e) => setSheetLinkInput(prev => ({
+                                ...prev,
+                                [opportunity.id]: e.target.value
+                              }))}
+                              placeholder="Enter spreadsheet link..."
+                            />
+                            <button
+                              onClick={() => handleUpdateSheetLink(opportunity.id)}
+                              disabled={processingAction === opportunity.id}
+                              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                            >
+                              {processingAction === opportunity.id ? 'Processing...' : 
+                                opportunity.sheetlink ? 'Update Link' : 'Add Link'}
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-6">
+                          <h4 className="font-semibold text-gray-900 mb-4">Opportunity Management</h4>
+                          <div className="flex space-x-3">
+                            <button
+                              onClick={() => handleTogglePause(opportunity.id, opportunity.status)}
+                              disabled={processingAction === opportunity.id}
+                              className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 disabled:opacity-50 flex items-center"
+                            >
+                              <Pause size={16} className="mr-2" />
+                              {processingAction === opportunity.id ? 'Processing...' : 
+                                opportunity.status === 'active' ? 'Pause Opportunity' : 'Resume Opportunity'}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(opportunity.id)}
+                              disabled={processingAction === opportunity.id}
+                              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 flex items-center"
+                            >
+                              <Trash2 size={16} className="mr-2" />
+                              {processingAction === opportunity.id ? 'Processing...' : 'Delete Opportunity'}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -724,43 +905,19 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setOpportunityToDelete(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Delete Opportunity"
+        message="Are you sure you want to delete this opportunity? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
-
-const formatPrice = (priceRange: any) => {
-  if (!priceRange || typeof priceRange !== 'object') return 'Price not set';
-  
-  const min = typeof priceRange.min === 'number' ? priceRange.min : 0;
-  const max = typeof priceRange.max === 'number' ? priceRange.max : 0;
-  
-  if (min === 0 && max === 0) return 'Price not set';
-  if (min === max) return `₹${min.toLocaleString()}`;
-  return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}`;
-};
-
-const formatPeakHours = (peakHours: any) => {
-  if (!peakHours || typeof peakHours !== 'object') return 'Not specified';
-  
-  const { start, end } = peakHours;
-  if (!start || !end) return 'Not specified';
-  
-  return `${start} - ${end}`;
-};
-
-const formatDemographics = (demographics: any) => {
-  if (!demographics || typeof demographics !== 'object') return 'Not specified';
-  
-  const details = [];
-  if (demographics.age_range) {
-    details.push(`Age: ${demographics.age_range.min}-${demographics.age_range.max}`);
-  }
-  if (demographics.gender) {
-    details.push(`Gender: ${demographics.gender}`);
-  }
-  if (demographics.income_level) {
-    details.push(`Income: ${demographics.income_level}`);
-  }
-  
-  return details.length > 0 ? details.join(', ') : 'Not specified';
-};
