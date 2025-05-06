@@ -27,6 +27,8 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
   const { user } = useAuth();
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
+  const [raisedAmount, setRaisedAmount] = useState<number>(0);
+  const [totalSheetMatches, setTotalSheetMatches] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalMatches: 0,
@@ -47,10 +49,10 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
   }, [user, opportunityId]);
 
   useEffect(() => {
-    if (opportunity && matches.length > 0) {
+    if (opportunity && matches) {
       calculateStats();
     }
-  }, [opportunity, matches]);
+  }, [opportunity, matches, raisedAmount, totalSheetMatches]);
 
   const fetchOpportunityData = async () => {
     try {
@@ -63,8 +65,18 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
       if (error) throw error;
       
       setOpportunity(data);
+      
+      if (data.sheetlink) {
+        await fetchSheetData(data.sheetlink);
+      } else {
+        setRaisedAmount(0);
+        setTotalSheetMatches(0);
+      }
     } catch (error) {
       console.error('Error fetching opportunity data:', error);
+      setRaisedAmount(0);
+      setTotalSheetMatches(0);
+      setOpportunity(null);
     }
   };
 
@@ -84,25 +96,72 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
       setLoading(false);
     } catch (error) {
       console.error('Error fetching matches:', error);
+      setMatches([]);
       setLoading(false);
     }
   };
 
-  const calculateStats = () => {
-    if (!opportunity || !matches) return;
+  const extractSpreadsheetId = (url: string): string | null => {
+    const match = url.match(/\/d\/([^\/]+)/);
+    return match ? match[1] : null;
+  };
 
-    const totalMatches = matches.length;
+  const fetchSheetData = async (sheetlink: string) => {
+    try {
+      const spreadsheetId = extractSpreadsheetId(sheetlink);
+      if (!spreadsheetId) {
+        console.warn('Invalid spreadsheet URL:', sheetlink);
+        setRaisedAmount(0);
+        setTotalSheetMatches(0);
+        return;
+      }
+      const apiUrl = `https://opensheet.elk.sh/${spreadsheetId}/Sheet1`;
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch sheet data: ${response.statusText}`);
+      }
+      const data = await response.json();
+      const sum = data.reduce((acc: number, row: any) => {
+        const result = parseFloat(row.Result);
+        return acc + (isNaN(result) ? 0 : result);
+      }, 0);
+      const validMatches = data.filter((row: any) => {
+        const result = parseFloat(row.Result);
+        return !isNaN(result) && result > 0;
+      });
+      setRaisedAmount(sum);
+      setTotalSheetMatches(validMatches.length); // Count only rows with Result > 0
+    } catch (error) {
+      console.error('Error fetching sheet data:', error);
+      setRaisedAmount(0);
+      setTotalSheetMatches(0);
+    }
+  };
+
+  const calculateStats = () => {
+    if (!opportunity) {
+      setStats({
+        totalMatches: 0,
+        pendingMatches: 0,
+        acceptedMatches: 0,
+        rejectedMatches: 0,
+        targetAmount: 0,
+        raisedAmount: 0,
+        remainingAmount: 0,
+        conversionRate: 0
+      });
+      return;
+    }
+
+    const totalMatches = totalSheetMatches;
     const pendingMatches = matches.filter(m => m.status === 'pending').length;
     const acceptedMatches = matches.filter(m => m.status === 'accepted').length;
     const rejectedMatches = matches.filter(m => m.status === 'rejected').length;
     
-    // Calculate financial metrics
     const targetAmount = opportunity.price_range?.max || 0;
-    const avgDealSize = targetAmount / 5; // Assuming 5 sponsors is the goal
-    const raisedAmount = acceptedMatches * avgDealSize;
-    const remainingAmount = targetAmount - raisedAmount;
+    const effectiveRaisedAmount = raisedAmount || 0;
+    const remainingAmount = targetAmount - effectiveRaisedAmount;
     
-    // Calculate conversion rate
     const conversionRate = totalMatches > 0 
       ? (acceptedMatches / totalMatches) * 100 
       : 0;
@@ -113,7 +172,7 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
       acceptedMatches,
       rejectedMatches,
       targetAmount,
-      raisedAmount,
+      raisedAmount: effectiveRaisedAmount,
       remainingAmount,
       conversionRate
     });
