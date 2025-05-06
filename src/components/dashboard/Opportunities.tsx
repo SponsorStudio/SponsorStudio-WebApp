@@ -25,7 +25,8 @@ import {
   CalendarRange,
   FileText as FileIcon,
   ExternalLink,
-  Search
+  Search,
+  FileSpreadsheet
 } from 'lucide-react';
 import type { Database } from '../../lib/database.types';
 
@@ -63,6 +64,7 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
   const [videoErrors, setVideoErrors] = useState<{ [key: string]: boolean }>({});
+  const [sheetLinkInput, setSheetLinkInput] = useState<{ [key: string]: string }>({});
 
   useEffect(() => {
     fetchOpportunities();
@@ -300,6 +302,43 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
     }
   };
 
+  const handleUpdateSheetLink = async (id: string) => {
+    const sheetLink = sheetLinkInput[id]?.trim();
+    
+    // Validate URL
+    if (sheetLink && !/^https?:\/\/[^\s/$.?#].[^\s]*$/.test(sheetLink)) {
+      toast.error('Please enter a valid URL');
+      return;
+    }
+
+    try {
+      setProcessingAction(id);
+
+      const { error } = await supabase
+        .from('opportunities')
+        .update({ sheetlink: sheetLink || null })
+        .eq('id', id)
+        .eq('verification_status', 'approved');
+
+      if (error) throw error;
+
+      setOpportunities(prevOpportunities =>
+        prevOpportunities.map(opp =>
+          opp.id === id ? { ...opp, sheetlink: sheetLink || null } : opp
+        )
+      );
+
+      toast.success('Spreadsheet link updated successfully');
+      setSheetLinkInput(prev => ({ ...prev, [id]: '' }));
+
+    } catch (error) {
+      console.error('Error updating spreadsheet link:', error);
+      toast.error('Failed to update spreadsheet link');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
   const handleRefresh = () => {
     fetchOpportunities();
   };
@@ -527,6 +566,20 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
                             </a>
                           </div>
                         )}
+                        {opportunity.sheetlink && (
+                          <div className="flex items-center text-sm text-[#2B4B9B]">
+                            <FileSpreadsheet size={16} className="mr-2 flex-shrink-0" />
+                            <a 
+                              href={opportunity.sheetlink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline flex items-center"
+                            >
+                              Spreadsheet Link
+                              <ExternalLink size={12} className="ml-1" />
+                            </a>
+                          </div>
+                        )}
                         {opportunity.media_urls && opportunity.media_urls.length > 0 && (
                           <div className="flex items-center text-sm text-[#2B4B9B]">
                             <LinkIcon size={16} className="mr-2 flex-shrink-0" />
@@ -717,6 +770,31 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
                         </div>
                       </div>
                     )}
+                    {opportunity.verification_status?.trim().toLowerCase() === 'approved' && (
+                      <div className="mt-6">
+                        <h4 className="font-semibold text-gray-900 mb-4">Spreadsheet Link</h4>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="text"
+                            className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
+                            value={sheetLinkInput[opportunity.id] || opportunity.sheetlink || ''}
+                            onChange={(e) => setSheetLinkInput(prev => ({
+                              ...prev,
+                              [opportunity.id]: e.target.value
+                            }))}
+                            placeholder="Enter spreadsheet link..."
+                          />
+                          <button
+                            onClick={() => handleUpdateSheetLink(opportunity.id)}
+                            disabled={processingAction === opportunity.id}
+                            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                          >
+                            {processingAction === opportunity.id ? 'Processing...' : 
+                              opportunity.sheetlink ? 'Update Link' : 'Add Link'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -727,40 +805,3 @@ export default function Opportunities({ searchTerm, setSearchTerm, stats, setSta
     </div>
   );
 }
-
-const formatPrice = (priceRange: any) => {
-  if (!priceRange || typeof priceRange !== 'object') return 'Price not set';
-  
-  const min = typeof priceRange.min === 'number' ? priceRange.min : 0;
-  const max = typeof priceRange.max === 'number' ? priceRange.max : 0;
-  
-  if (min === 0 && max === 0) return 'Price not set';
-  if (min === max) return `₹${min.toLocaleString()}`;
-  return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}`;
-};
-
-const formatPeakHours = (peakHours: any) => {
-  if (!peakHours || typeof peakHours !== 'object') return 'Not specified';
-  
-  const { start, end } = peakHours;
-  if (!start || !end) return 'Not specified';
-  
-  return `${start} - ${end}`;
-};
-
-const formatDemographics = (demographics: any) => {
-  if (!demographics || typeof demographics !== 'object') return 'Not specified';
-  
-  const details = [];
-  if (demographics.age_range) {
-    details.push(`Age: ${demographics.age_range.min}-${demographics.age_range.max}`);
-  }
-  if (demographics.gender) {
-    details.push(`Gender: ${demographics.gender}`);
-  }
-  if (demographics.income_level) {
-    details.push(`Income: ${demographics.income_level}`);
-  }
-  
-  return details.length > 0 ? details.join(', ') : 'Not specified';
-};
