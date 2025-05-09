@@ -2,20 +2,18 @@
   "short_name": "Sponsor Studio",
   "name": "Sponsor Studio - Connect Brands with Events",
   "description": "Connect with the right partners for your next event. Whether you're a brand looking to sponsor or an organizer seeking sponsors, we've got you covered.",
-  "icons": [
-    {
-      "src": "https://i.ibb.co/ZzPfwrxP/logo-final-png.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://i.ibb.co/ZzPfwrxP/logo-final-png.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
-  ],
+   "icons": [
+        {
+            "src": "/android-chrome-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/android-chrome-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ],
   "start_url": "/",
   "display": "standalone",
   "theme_color": "#2B4B9B",
