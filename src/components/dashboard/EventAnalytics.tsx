@@ -10,13 +10,19 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  ChevronDown
 } from 'lucide-react';
 import type { Database } from '../../lib/database.types';
 
 type Opportunity = Database['public']['Tables']['opportunities']['Row'];
 type Match = Database['public']['Tables']['matches']['Row'] & {
   profiles: Database['public']['Tables']['profiles']['Row'];
+};
+type FundRow = {
+  CompanyName: string;
+  Location: string;
+  Result: string;
 };
 
 interface AnalyticsProps {
@@ -29,7 +35,10 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [raisedAmount, setRaisedAmount] = useState<number>(0);
   const [totalSheetMatches, setTotalSheetMatches] = useState<number>(0);
+  const [totalAmount, setTotalAmount] = useState<number>(0);
+  const [fundRows, setFundRows] = useState<FundRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFundingOpen, setIsFundingOpen] = useState(false);
   const [stats, setStats] = useState({
     totalMatches: 0,
     pendingMatches: 0,
@@ -52,7 +61,7 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
     if (opportunity && matches) {
       calculateStats();
     }
-  }, [opportunity, matches, raisedAmount, totalSheetMatches]);
+  }, [opportunity, matches, raisedAmount, totalSheetMatches, totalAmount]);
 
   const fetchOpportunityData = async () => {
     try {
@@ -71,11 +80,15 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
       } else {
         setRaisedAmount(0);
         setTotalSheetMatches(0);
+        setTotalAmount(0);
+        setFundRows([]);
       }
     } catch (error) {
       console.error('Error fetching opportunity data:', error);
       setRaisedAmount(0);
       setTotalSheetMatches(0);
+      setTotalAmount(0);
+      setFundRows([]);
       setOpportunity(null);
     }
   };
@@ -113,6 +126,8 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
         console.warn('Invalid spreadsheet URL:', sheetlink);
         setRaisedAmount(0);
         setTotalSheetMatches(0);
+        setTotalAmount(0);
+        setFundRows([]);
         return;
       }
       const apiUrl = `https://opensheet.elk.sh/${spreadsheetId}/Sheet1`;
@@ -121,20 +136,45 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
         throw new Error(`Failed to fetch sheet data: ${response.statusText}`);
       }
       const data = await response.json();
-      const sum = data.reduce((acc: number, row: any) => {
+      
+      // Find the total amount row and extract its Result
+      const totalAmountRow = data.find((row: any) => 
+        row.Name?.toLowerCase() === 'total amount'
+      );
+      const totalAmountValue = totalAmountRow && !isNaN(parseFloat(totalAmountRow.Result)) 
+        ? parseFloat(totalAmountRow.Result) 
+        : 0;
+      
+      // Filter valid rows (excluding total amount, with valid positive Result)
+      const validRows = data.filter((row: any) => 
+        row.Name?.toLowerCase() !== 'total amount' && 
+        !isNaN(parseFloat(row.Result)) && 
+        parseFloat(row.Result) > 0
+      );
+      
+      // Calculate sum of valid rows
+      const sum = validRows.reduce((acc: number, row: any) => {
         const result = parseFloat(row.Result);
-        return acc + (isNaN(result) ? 0 : result);
+        return acc + result;
       }, 0);
-      const validMatches = data.filter((row: any) => {
-        const result = parseFloat(row.Result);
-        return !isNaN(result) && result > 0;
-      });
+      
+      // Map valid rows to FundRow format for table
+      const fundData = validRows.map((row: any) => ({
+        CompanyName: row['Company Name'] || '',
+        Location: row.Location || '',
+        Result: row.Result
+      }));
+      
       setRaisedAmount(sum);
-      setTotalSheetMatches(validMatches.length); // Count only rows with Result > 0
+      setTotalSheetMatches(validRows.length);
+      setTotalAmount(totalAmountValue);
+      setFundRows(fundData);
     } catch (error) {
       console.error('Error fetching sheet data:', error);
       setRaisedAmount(0);
       setTotalSheetMatches(0);
+      setTotalAmount(0);
+      setFundRows([]);
     }
   };
 
@@ -158,7 +198,7 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
     const acceptedMatches = matches.filter(m => m.status === 'accepted').length;
     const rejectedMatches = matches.filter(m => m.status === 'rejected').length;
     
-    const targetAmount = opportunity.price_range?.max || 0;
+    const targetAmount = totalAmount;
     const effectiveRaisedAmount = raisedAmount || 0;
     const remainingAmount = targetAmount - effectiveRaisedAmount;
     
@@ -176,6 +216,10 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
       remainingAmount,
       conversionRate
     });
+  };
+
+  const toggleFundingAccordion = () => {
+    setIsFundingOpen(!isFundingOpen);
   };
 
   if (loading) {
@@ -302,7 +346,7 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
         </div>
       </div>
       
-      <div>
+      <div className="mb-8">
         <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Matches</h3>
         {matches.length === 0 ? (
           <p className="text-gray-600">No matches yet</p>
@@ -351,6 +395,67 @@ export default function EventAnalytics({ opportunityId }: AnalyticsProps) {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-8">
+        <button
+          onClick={toggleFundingAccordion}
+          className="flex items-center w-full text-left text-lg font-bold text-gray-800 mb-4 focus:outline-none"
+        >
+          <ChevronDown className={`w-5 h-5 mr-2 transform transition-transform ${isFundingOpen ? 'rotate-180' : ''}`} />
+          Funding Contributions
+        </button>
+        {isFundingOpen && (
+          <div className="transition-all duration-300">
+            {fundRows.length === 0 ? (
+              <p className="text-gray-600">No funds raised yet</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Company Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Location
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount (₹)
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {fundRows.map((row, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {row.CompanyName || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {row.Location || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          ₹{parseFloat(row.Result).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        Total
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {' '}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                        ₹{raisedAmount.toLocaleString()}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>
