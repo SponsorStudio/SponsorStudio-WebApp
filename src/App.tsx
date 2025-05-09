@@ -109,7 +109,7 @@ const HeroSection: React.FC<{ user: any; setShowAuthForm: (value: boolean) => vo
   }, [currentTitleIndex]);
 
   return (
-    <div ref={heroRef} className="min-h-[80vh] flex items-center pt-20 relative overflow-hidden bg-gradient-to-br from-blue-50 to-white">
+    <div ref={heroRef} className="min-h-[80vh] flex items-center pt-20 relative overflow-hidden bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <h1 ref={textRef} className="text-5xl sm:text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight">
           <span className="block text-[#2B4B9B] min-h-[60px] lg:min-h-[72px]">
