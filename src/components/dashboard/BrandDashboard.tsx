@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -17,14 +17,21 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Video
+  Video,
+  Hash
 } from 'lucide-react';
 import { sendMatchNotification } from '../../lib/email';
 import type { Database } from '../../lib/database.types';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 
-type Opportunity = Database['public']['Tables']['opportunities']['Row'];
+type Opportunity = Database['public']['Tables']['opportunities']['Row'] & {
+  video_url?: string | null;
+};
+type Post = Database['public']['Tables']['posts']['Row'] & {
+  categories: Database['public']['Tables']['categories']['Row'] | null;
+};
 type Category = Database['public']['Tables']['categories']['Row'];
 type Match = Database['public']['Tables']['matches']['Row'] & {
   opportunities: Database['public']['Tables']['opportunities']['Row'] & {
@@ -36,12 +43,427 @@ interface BrandDashboardProps {
   onUpdateProfile: () => void;
 }
 
+interface OpportunityCardProps {
+  opportunity: Opportunity;
+  onLike: (id: string) => Promise<void>;
+  onReject: (id: string) => void;
+  swipeAction: 'like' | 'dislike' | null;
+  onAnimationComplete: (id: string) => void;
+}
+
+interface InfluencerPostCardProps {
+  post: Post;
+  onLike: (id: string) => Promise<void>;
+  onReject: (id: string) => void;
+  swipeAction: 'like' | 'dislike' | null;
+  onAnimationComplete: (id: string) => void;
+}
+
+// Custom hook to handle swipe animation logic for left/right swipes
+const useSwipeAnimation = (
+  onLike: () => Promise<void>,
+  onReject: () => void
+) => {
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 200], [-15, 15]);
+  const likeOpacity = useTransform(x, [0, 150], [0, 1]);
+  const dislikeOpacity = useTransform(x, [-150, 0], [1, 0]);
+
+  const handleDragEnd = async (event: any, info: any) => {
+    const swipeThreshold = 100; // Reduced for better sensitivity
+
+    // Horizontal swipe for like/dislike
+    if (Math.abs(info.offset.x) > swipeThreshold) {
+      if (info.offset.x > swipeThreshold) {
+        await onLike();
+      } else if (info.offset.x < -swipeThreshold) {
+        onReject();
+      }
+    } else {
+      // Reset position if swipe threshold not met
+      x.set(0, true);
+    }
+  };
+
+  return { x, rotate, likeOpacity, dislikeOpacity, handleDragEnd };
+};
+
+// Memoized OpportunityCard to prevent unnecessary re-renders
+const OpportunityCard: React.FC<OpportunityCardProps> = memo(
+  ({ opportunity, onLike, onReject, swipeAction, onAnimationComplete }) => {
+    const { x, rotate, likeOpacity, dislikeOpacity, handleDragEnd } = useSwipeAnimation(
+      () => onLike(opportunity.id),
+      () => onReject(opportunity.id)
+    );
+
+    const [showFullDescription, setShowFullDescription] = useState(false);
+
+    // Reset the x position when a new opportunity card is loaded
+    useEffect(() => {
+      x.set(0);
+    }, [opportunity.id, x]);
+
+    // Handle button-triggered animations for like/dislike
+    const handleButtonAction = async (action: 'like' | 'dislike') => {
+      if (action === 'like') {
+        await onLike(opportunity.id);
+      } else {
+        onReject(opportunity.id);
+      }
+    };
+
+    return (
+      <motion.div
+        key={opportunity.id}
+        className="snap-center flex-shrink-0 w-full h-[calc(100vh-150px)] sm:h-[calc(100vh-100px)] flex flex-col bg-black rounded-lg overflow-hidden"
+        drag="x" // Only allow horizontal dragging
+        dragConstraints={{ left: -300, right: 300 }}
+        dragElastic={0.2} // Reduced elasticity for smoother feel
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
+        initial={{ scale: 0.95, x: 0 }}
+        animate={{ scale: 1, x }}
+        exit={{
+          x: swipeAction === 'like' ? '100%' : swipeAction === 'dislike' ? '-100%' : 0,
+          opacity: 0,
+          transition: { duration: 0.3, ease: 'easeOut' }
+        }}
+        transition={{ type: 'spring', stiffness: 200, damping: 25, mass: 0.8 }}
+        style={{ x, rotate, willChange: 'transform' }}
+        onAnimationComplete={() => {
+          if (swipeAction) {
+            onAnimationComplete(opportunity.id);
+          }
+        }}
+      >
+        {/* Background Media */}
+        {opportunity.video_url ? (
+          <video autoPlay loop muted className="w-full h-full object-cover">
+            <source src={opportunity.video_url} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        ) : opportunity.media_urls && opportunity.media_urls.length > 0 ? (
+          <img
+            src={opportunity.media_urls[0]}
+            alt={opportunity.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <p className="text-gray-500 text-sm">No media available</p>
+          </div>
+        )}
+
+        {/* Swipe Overlay with Enhanced Shades */}
+        <motion.div
+          style={{ opacity: likeOpacity }}
+          className="absolute inset-0 flex items-center justify-center pointer-events-none bg-green-600/90"
+        >
+          <div className="text-4xl sm:text-6xl font-bold text-white border-4 border-white rounded-full px-6 py-3 shadow-lg">
+            LIKE
+          </div>
+        </motion.div>
+        <motion.div
+          style={{ opacity: dislikeOpacity }}
+          className="absolute inset-0 flex items-center justify-center pointer-events-none bg-red-600/90"
+        >
+          <div className="text-4xl sm:text-6xl font-bold text-white border-4 border-white rounded-full px-6 py-3 shadow-lg">
+            DISLIKE
+          </div>
+        </motion.div>
+
+        {/* Gradient Overlay for Content */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+        {/* Content Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">{opportunity.title}</h2>
+
+          <div className="flex items-center mb-3 text-sm sm:text-base">
+            <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+            <span>{opportunity.location}</span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+            {opportunity.start_date && (
+              <div className="flex items-center">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <div>
+                  <p className="text-xs sm:text-sm opacity-80">Date</p>
+                  <p className="text-sm sm:text-base">
+                    {opportunity.end_date &&
+                    new Date(opportunity.start_date).toDateString() ===
+                    new Date(opportunity.end_date).toDateString()
+                      ? new Date(opportunity.start_date).toLocaleDateString()
+                      : `${new Date(opportunity.start_date).toLocaleDateString()}${
+                          opportunity.end_date
+                            ? ` - ${new Date(opportunity.end_date).toLocaleDateString()}`
+                            : ''
+                        }`}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {opportunity.price_range && (
+              <div className="flex items-center">
+                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <div>
+                  <p className="text-xs sm:text-sm opacity-80">Budget</p>
+                  <p className="text-sm sm:text-base">
+                    ₹{opportunity.price_range.min} - ₹{opportunity.price_range.max}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {opportunity.calendly_link && (
+              <div className="flex items-center text-sm sm:text-base bg-blue-600/50 px-2 py-1 rounded-lg">
+                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
+                <span>Calendly Available</span>
+              </div>
+            )}
+
+            {opportunity.sponsorship_brochure_url && (
+              <div className="flex items-center text-sm sm:text-base bg-blue-600/50 px-2 py-1 rounded-lg">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
+                <span>Brochure Available</span>
+              </div>
+            )}
+          </div>
+
+          <div className="text-sm sm:text-base mb-4">
+            {opportunity.description && opportunity.description.length > 100 && !showFullDescription ? (
+              <>
+                {opportunity.description.slice(0, 100)}...
+                <button
+                  onClick={() => setShowFullDescription(true)}
+                  className="text-blue-300 hover:text-blue-100 font-medium ml-1"
+                >
+                  Read more
+                </button>
+              </>
+            ) : (
+              <>
+                {opportunity.description}
+                {opportunity.description && opportunity.description.length > 100 && (
+                  <button
+                    onClick={() => setShowFullDescription(false)}
+                    className="text-blue-300 hover:text-blue-100 font-medium ml-1"
+                  >
+                    Read less
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Like/Dislike Buttons on the Right Side */}
+        <div className="absolute top-1/2 right-4 sm:right-6 transform -translate-y-1/2 flex flex-col gap-2">
+          <button
+            onClick={() => handleButtonAction('like')}
+            className="p-2 bg-green-500/80 rounded-full hover:bg-green-600/90 transition-colors"
+          >
+            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </button>
+          <button
+            onClick={() => handleButtonAction('dislike')}
+            className="p-2 bg-red-500/80 rounded-full hover:bg-red-500/90 transition-colors"
+          >
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+);
+
+// Memoized InfluencerPostCard to handle individual influencer posts with swipe functionality
+const InfluencerPostCard: React.FC<InfluencerPostCardProps> = memo(
+  ({ post, onLike, onReject, swipeAction, onAnimationComplete }) => {
+    const { x, rotate, likeOpacity, dislikeOpacity, handleDragEnd } = useSwipeAnimation(
+      () => onLike(post.id),
+      () => onReject(post.id)
+    );
+
+    const [showFullDescription, setShowFullDescription] = useState(false);
+
+    // Reset the x position when a new post card is loaded
+    useEffect(() => {
+      x.set(0);
+    }, [post.id, x]);
+
+    // Handle button-triggered animations for like/dislike
+    const handleButtonAction = async (action: 'like' | 'dislike') => {
+      if (action === 'like') {
+        await onLike(post.id);
+      } else {
+        onReject(post.id);
+      }
+    };
+
+    return (
+      <motion.div
+        key={post.id}
+        className="snap-center flex-shrink-0 w-full h-[calc(100vh-150px)] sm:h-[calc(100vh-100px)] flex flex-col bg-black rounded-lg overflow-hidden"
+        drag="x" // Only allow horizontal dragging
+        dragConstraints={{ left: -300, right: 300 }}
+        dragElastic={0.2}
+        dragMomentum={false}
+        onDragEnd={handleDragEnd}
+        initial={{ scale: 0.95, x: 0 }}
+        animate={{ scale: 1, x }}
+        exit={{
+          x: swipeAction === 'like' ? '100%' : swipeAction === 'dislike' ? '-100%' : 0,
+          opacity: 0,
+          transition: { duration: 0.3, ease: 'easeOut' }
+        }}
+        transition={{ type: 'spring', stiffness: 200, damping: 25, mass: 0.8 }}
+        style={{ x, rotate, willChange: 'transform' }}
+        onAnimationComplete={() => {
+          if (swipeAction) {
+            onAnimationComplete(post.id);
+          }
+        }}
+      >
+        {/* Background Media */}
+        {post.video_url ? (
+          <video autoPlay loop muted className="w-full h-full object-cover">
+            <source src={post.video_url} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        ) : post.media_urls && post.media_urls.length > 0 ? (
+          <img
+            src={post.media_urls[0]}
+            alt={post.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+            <p className="text-gray-500 text-sm">No media available</p>
+          </div>
+        )}
+
+        {/* Swipe Overlay with Enhanced Shades */}
+        <motion.div
+          style={{ opacity: likeOpacity }}
+          className="absolute inset-0 flex items-center justify-center pointer-events-none bg-green-600/90"
+        >
+          <div className="text-4xl sm:text-6xl font-bold text-white border-4 border-white rounded-full px-6 py-3 shadow-lg">
+            LIKE
+          </div>
+        </motion.div>
+        <motion.div
+          style={{ opacity: dislikeOpacity }}
+          className="absolute inset-0 flex items-center justify-center pointer-events-none bg-red-600/90"
+        >
+          <div className="text-4xl sm:text-6xl font-bold text-white border-4 border-white rounded-full px-6 py-3 shadow-lg">
+            DISLIKE
+          </div>
+        </motion.div>
+
+        {/* Gradient Overlay for Content */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+        {/* Content Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
+          <h2 className="text-xl sm:text-2xl font-bold mb-2">{post.title}</h2>
+
+          {post.location && (
+            <div className="flex items-center mb-3 text-sm sm:text-base">
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              <span>{post.location}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+            {post.price_range && (
+              <div className="flex items-center">
+                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <div>
+                  <p className="text-xs sm:text-sm opacity-80">Budget</p>
+                  <p className="text-sm sm:text-base">
+                    ₹{post.price_range.min} - ₹{post.price_range.max}
+                  </p>
+                </div>
+              </div>
+            )}
+            {post.reach && (
+              <div className="flex items-center">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                <div>
+                  <p className="text-xs sm:text-sm opacity-80">Reach</p>
+                  <p className="text-sm sm:text-base">
+                    {post.reach.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {post.hashtags && (
+            <div className="flex items-center text-sm sm:text-base mb-4">
+              <Hash className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              <span>{post.hashtags}</span>
+            </div>
+          )}
+
+          <div className="text-sm sm:text-base mb-4">
+            {post.description && post.description.length > 100 && !showFullDescription ? (
+              <>
+                {post.description.slice(0, 100)}...
+                <button
+                  onClick={() => setShowFullDescription(true)}
+                  className="text-blue-300 hover:text-blue-100 font-medium ml-1"
+                >
+                  Read more
+                </button>
+              </>
+            ) : (
+              <>
+                {post.description}
+                {post.description && post.description.length > 100 && (
+                  <button
+                    onClick={() => setShowFullDescription(false)}
+                    className="text-blue-300 hover:text-blue-100 font-medium ml-1"
+                  >
+                    Read less
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Like/Dislike Buttons on the Right Side */}
+        <div className="absolute top-1/2 right-4 sm:right-6 transform -translate-y-1/2 flex flex-col gap-2">
+          <button
+            onClick={() => handleButtonAction('like')}
+            className="p-2 bg-green-500/80 rounded-full hover:bg-green-600/90 transition-colors"
+          >
+            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </button>
+          <button
+            onClick={() => handleButtonAction('dislike')}
+            className="p-2 bg-red-500/80 rounded-full hover:bg-red-500/90 transition-colors"
+          >
+            <X className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+);
+
 export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps) {
   const { user, profile } = useAuth();
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentOpportunityIndex, setCurrentOpportunityIndex] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [locationFilter, setLocationFilter] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
@@ -49,7 +471,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const [rejections, setRejections] = useState<string[]>([]);
   const [showMatchSuccess, setShowMatchSuccess] = useState(false);
   const [matchedOpportunity, setMatchedOpportunity] = useState<Opportunity | null>(null);
-  const [activeTab, setActiveTab] = useState<'discover' | 'matches'>('discover');
+  const [activeTab, setActiveTab] = useState<'discover' | 'influencers' | 'matches'>('discover');
   const [userMatches, setUserMatches] = useState<Match[]>([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -61,19 +483,16 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   const [priceRangeFilter, setPriceRangeFilter] = useState<string>('');
   const [locationSearch, setLocationSearch] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [swipeActions, setSwipeActions] = useState<{ [key: string]: 'like' | 'dislike' | null }>({});
 
-  // Track if this is the initial load and if a refresh has been attempted
   const isInitialLoad = useRef(true);
   const hasRefreshed = useRef(false);
   const loadStartTime = useRef(Date.now());
 
   useEffect(() => {
     if (user) {
-      // Check if user is newly registered (e.g., profile is incomplete)
       const isNewUser = !profile?.company_name;
 
-      // Set up a timer to check if loading exceeds 1.5 seconds
       const timer = setTimeout(() => {
         if (isInitialLoad.current && loading && isNewUser && !hasRefreshed.current) {
           console.log('Initial load taking too long, triggering auto-refresh');
@@ -82,11 +501,10 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
         }
       }, 1500);
 
-      // Fetch data
       fetchCategories();
       fetchUserMatches();
+      fetchPosts();
 
-      // Clean up timer and mark initial load as complete
       return () => {
         clearTimeout(timer);
         isInitialLoad.current = false;
@@ -174,119 +592,199 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
       return;
     }
     
-    // Filter out opportunities that are already matched (pending or accepted) or rejected
     const filteredOpportunities = data.filter(
       opp => 
         !userMatches.some(match => 
           match.opportunity_id === opp.id && 
           (match.status === 'pending' || match.status === 'accepted')
-        ) && // Exclude opportunities with pending or accepted matches
-        !rejections.includes(opp.id) // Exclude rejections
+        ) && 
+        !rejections.includes(opp.id)
     );
     
     setOpportunities(filteredOpportunities);
     setLoading(false);
-    
-    // Reset index only on initial load or filter change
-    if (resetIndex && filteredOpportunities.length > 0) {
-      setCurrentOpportunityIndex(0);
-    } else if (filteredOpportunities.length > 0 && currentOpportunityIndex >= filteredOpportunities.length) {
-      setCurrentOpportunityIndex(0);
-    }
   };
 
-  // Fetch opportunities whenever filters or userMatches change
+  const fetchPosts = async (resetIndex: boolean = false) => {
+    let query = supabase
+      .from('posts')
+      .select('*, categories(*)')
+      .eq('status', 'active')
+      .eq('verification_status', 'approved');
+    
+    if (selectedCategory) {
+      query = query.eq('category_id', selectedCategory);
+    }
+    
+    if (priceRangeFilter) {
+      const [min, max] = priceRangeFilter.split('-').map(Number);
+      query = query.contains('price_range', { min, max });
+    }
+    
+    if (locationSearch) {
+      query = query.ilike('location', `%${locationSearch}%`);
+    }
+
+    if (searchQuery) {
+      query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,hashtags.ilike.%${searchQuery}%`);
+    }
+    
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error('Error fetching posts:', error);
+      return;
+    }
+    
+    const filteredPosts = data.filter(
+      post => 
+        !rejections.includes(post.id)
+    );
+    
+    setPosts(filteredPosts);
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (user) {
-      fetchOpportunities(true); // Reset index when filters or matches change
-    }
-  }, [user, selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery, userMatches]);
-
-  const handleLike = async (opportunityId: string) => {
-    if (!user) return;
-    
-    try {
-      const { data: opportunityData, error: opportunityError } = await supabase
-        .from('opportunities')
-        .select(`
-          *,
-          profiles:creator_id (*)
-        `)
-        .eq('id', opportunityId)
-        .single();
-      
-      if (opportunityError) throw opportunityError;
-      
-      const { error } = await supabase
-        .from('matches')
-        .insert({
-          opportunity_id: opportunityId,
-          brand_id: user.id,
-          status: 'pending'
-        });
-      
-      if (error) throw error;
-      
-      if (profile) {
-        try {
-          const creatorProfile = (opportunityData as any).profiles;
-          
-          await sendMatchNotification(
-            profile.company_name || user.email || '',
-            user.email || '',
-            opportunityData.title,
-            creatorProfile?.company_name || 'Event Organizer',
-            creatorProfile?.email || '',
-            opportunityData.calendly_link,
-            opportunityData.sponsorship_brochure_url
-          );
-          
-          setMatchedOpportunity(opportunityData);
-          setShowMatchSuccess(true);
-          
-          setTimeout(() => {
-            setShowMatchSuccess(false);
-            setMatchedOpportunity(null);
-          }, 5000);
-        } catch (emailError) {
-          console.error('Error sending email notification:', emailError);
-        }
+      if (activeTab === 'discover') {
+        fetchOpportunities(true);
+      } else if (activeTab === 'influencers') {
+        fetchPosts(true);
       }
-      
-      const updatedMatches = [...matches, opportunityId];
-      setMatches(updatedMatches);
-      fetchUserMatches();
-      
-      // Update opportunities and index in one step
-      const updatedOpportunities = opportunities.filter(opp => opp.id !== opportunityId);
+    }
+  }, [user, selectedCategory, adTypeFilter, priceRangeFilter, locationSearch, searchQuery, userMatches, activeTab]);
+
+  const handleLike = async (id: string, type: 'opportunity' | 'post' = 'opportunity') => {
+    if (!user) return;
+
+    if (type === 'opportunity') {
+      const updatedOpportunities = opportunities.filter(opp => opp.id !== id);
       setOpportunities(updatedOpportunities);
-      
-      if (updatedOpportunities.length === 0) {
-        setCurrentOpportunityIndex(0);
-      } else if (currentOpportunityIndex >= updatedOpportunities.length) {
-        setCurrentOpportunityIndex(0);
+    } else {
+      const updatedPosts = posts.filter(post => post.id !== id);
+      setPosts(updatedPosts);
+    }
+
+    try {
+      if (type === 'opportunity') {
+        const { data: opportunityData, error: opportunityError } = await supabase
+          .from('opportunities')
+          .select(`
+            *,
+            profiles:creator_id (*)
+          `)
+          .eq('id', id)
+          .single();
+        
+        if (opportunityError) throw opportunityError;
+        
+        const { error } = await supabase
+          .from('matches')
+          .insert({
+            opportunity_id: id,
+            brand_id: user.id,
+            status: 'pending'
+          });
+        
+        if (error) throw error;
+        
+        if (profile) {
+          try {
+            const creatorProfile = (opportunityData as any).profiles;
+            
+            await sendMatchNotification(
+              profile.company_name || user.email || '',
+              user.email || '',
+              opportunityData.title,
+              creatorProfile?.company_name || 'Event Organizer',
+              creatorProfile?.email || '',
+              opportunityData.calendly_link,
+              opportunityData.sponsorship_brochure_url
+            );
+            
+            setMatchedOpportunity(opportunityData);
+            setShowMatchSuccess(true);
+            
+            setTimeout(() => {
+              setShowMatchSuccess(false);
+              setMatchedOpportunity(null);
+            }, 5000);
+          } catch (emailError) {
+            console.error('Error sending email notification:', emailError);
+          }
+        }
+        
+        const updatedMatches = [...matches, id];
+        setMatches(updatedMatches);
+        
+        fetchUserMatches();
       } else {
-        setCurrentOpportunityIndex(currentOpportunityIndex);
+        const { data: postData, error: postError } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles:influencer_id (*)
+          `)
+          .eq('id', id)
+          .single();
+        
+        if (postError) throw postError;
+        
+        const { error } = await supabase
+          .from('matches')
+          .insert({
+            post_id: id,
+            brand_id: user.id,
+            status: 'pending'
+          });
+        
+        if (error) throw error;
+        
+        if (profile) {
+          try {
+            const influencerProfile = (postData as any).profiles;
+            
+            await sendMatchNotification(
+              profile.company_name || user.email || '',
+              user.email || '',
+              postData.title,
+              influencerProfile?.company_name || 'Influencer',
+              influencerProfile?.email || '',
+              null,
+              null
+            );
+            
+            setShowMatchSuccess(true);
+            
+            setTimeout(() => {
+              setShowMatchSuccess(false);
+            }, 5000);
+          } catch (emailError) {
+            console.error('Error sending email notification:', emailError);
+          }
+        }
       }
     } catch (error) {
       console.error('Error creating match:', error);
+      if (type === 'opportunity') {
+        await fetchOpportunities();
+      } else {
+        await fetchPosts();
+      }
     }
   };
 
-  const handleReject = (opportunityId: string) => {
-    const updatedRejections = [...rejections, opportunityId];
+  const handleReject = (id: string, type: 'opportunity' | 'post') => {
+    const updatedRejections = [...rejections, id];
     setRejections(updatedRejections);
     
-    // Update opportunities and index in one step
-    const updatedOpportunities = opportunities.filter(opp => opp.id !== opportunityId);
-    setOpportunities(updatedOpportunities);
-    
-    if (updatedOpportunities.length === 0) {
-      setCurrentOpportunityIndex(0);
-    } else if (currentOpportunityIndex >= updatedOpportunities.length) {
-      setCurrentOpportunityIndex(0);
+    if (type === 'opportunity') {
+      const updatedOpportunities = opportunities.filter(opp => opp.id !== id);
+      setOpportunities(updatedOpportunities);
     } else {
-      setCurrentOpportunityIndex(currentOpportunityIndex);
+      const updatedPosts = posts.filter(post => post.id !== id);
+      setPosts(updatedPosts);
     }
   };
 
@@ -304,13 +802,14 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     onUpdateProfile();
   };
 
-  const currentOpportunity = opportunities[currentOpportunityIndex];
+  const handleAnimationComplete = (id: string) => {
+    setSwipeActions(prev => ({ ...prev, [id]: null }));
+  };
 
   const pendingMatches = userMatches.filter(match => match.status === 'pending');
   const acceptedMatches = userMatches.filter(match => match.status === 'accepted');
   const rejectedMatches = userMatches.filter(match => match.status === 'rejected');
 
-  // Function to generate Google Calendar event link
   const generateGoogleCalendarLink = (match: Match) => {
     const event = {
       title: `Meeting for ${match.opportunities?.title || 'Opportunity'}`,
@@ -325,18 +824,16 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
     const baseUrl = 'https://calendar.google.com/calendar/render';
     const startTime = new Date(event.start).toISOString().replace(/[-:]/g, '').split('.')[0];
     const endTime = new Date(event.end).toISOString().replace(/[-:]/g, '').split('.')[0];
-    const dates = `${startTime}%2F${endTime}`; // Use %2F directly for date separator
+    const dates = `${startTime}%2F${endTime}`;
 
-    // Encode the description directly, letting encodeURIComponent handle \n to %0A conversion
     const encodedDescription = encodeURIComponent(event.description.trim());
 
-    // Construct the URL manually to avoid double-encoding
     const params = [
       `action=TEMPLATE`,
-      `text=${encodeURIComponent(event.title.trim()).replace(/%20/g, '+')}`, // Replace %20 with + for spaces in text
-      `dates=${dates}`, // Already formatted with %2F
-      `details=${encodedDescription}`, // Encode description with \n converted to %0A
-      `location=${encodeURIComponent(event.location.trim())}`, // Encode location
+      `text=${encodeURIComponent(event.title.trim()).replace(/%20/g, '+')}`,
+      `dates=${dates}`,
+      `details=${encodedDescription}`,
+      `location=${encodeURIComponent(event.location.trim())}`,
     ];
 
     return `${baseUrl}?${params.join('&')}`;
@@ -345,7 +842,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
   if (loading) {
     return (
       <div className="max-w-full overflow-x-hidden">
-        {/* Profile Completion Warning Skeleton */}
         {!profile?.company_name && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
             <div className="flex items-start">
@@ -359,7 +855,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
           </div>
         )}
 
-        {/* Header Skeleton */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
           <Skeleton width={200} height={24} />
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-2 mt-4 sm:mt-0">
@@ -368,17 +863,15 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
           </div>
         </div>
 
-        {/* Tabs Skeleton */}
         <div className="mb-4 border-b border-gray-200">
           <div className="flex flex-wrap gap-4 sm:gap-8">
             <Skeleton width={120} height={20} />
             <Skeleton width={150} height={20} />
+            <Skeleton width={150} height={20} />
           </div>
         </div>
 
-        {/* Discover Tab Skeleton */}
         <div>
-          {/* Filter Section Skeleton */}
           {showFilters && (
             <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm mb-4">
               <div className="flex justify-between items-center mb-3 sm:mb-4">
@@ -400,7 +893,6 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
             </div>
           )}
 
-          {/* Opportunity Card Skeleton */}
           <div className="min-h-[400px] sm:min-h-[500px] bg-white rounded-lg shadow-sm overflow-hidden">
             <Skeleton height={192} className="sm:h-64" />
             <div className="p-4 sm:p-6">
@@ -447,7 +939,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
 
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4">
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Brand Dashboard</h1>
-        {activeTab === 'discover' && (
+        {(activeTab === 'discover' || activeTab === 'influencers') && (
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:space-x-2 mt-4 sm:mt-0">
             <button 
               onClick={() => setShowFilters(!showFilters)}
@@ -483,6 +975,16 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
             Discover Events
           </button>
           <button
+            onClick={() => setActiveTab('influencers')}
+            className={`py-2 px-1 -mb-px font-medium text-xs sm:text-sm ${
+              activeTab === 'influencers'
+                ? 'text-[#2B4B9B] border-b-2 border-[#2B4B9B]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Discover Influencers
+          </button>
+          <button
             onClick={() => setActiveTab('matches')}
             className={`py-2 px-1 -mb-px font-medium text-xs sm:text-sm ${
               activeTab === 'matches'
@@ -499,7 +1001,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
         </div>
       </div>
 
-      {showMatchSuccess && matchedOpportunity && (
+      {showMatchSuccess && (matchedOpportunity || activeTab === 'influencers') && (
         <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-lg">
           <div className="flex items-start">
             <div className="flex-shrink-0 mt-0.5">
@@ -510,34 +1012,38 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
             <div className="ml-2 sm:ml-3">
               <h3 className="text-xs sm:text-sm font-medium">Interest expressed successfully!</h3>
               <div className="mt-1 sm:mt-2 text-xs sm:text-sm">
-                <p>You've expressed interest in "{matchedOpportunity.title}". The event organizer has been notified and will contact you soon.</p>
-                
-                {matchedOpportunity.calendly_link && (
-                  <p className="mt-1 sm:mt-2">
-                    <a 
-                      href={matchedOpportunity.calendly_link} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-green-700 hover:text-green-900 font-medium text-xs sm:text-sm"
-                    >
-                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                      Schedule a meeting
-                    </a>
-                  </p>
-                )}
-                
-                {matchedOpportunity.sponsorship_brochure_url && (
-                  <p className="mt-1 sm:mt-2">
-                    <a 
-                      href={matchedOpportunity.sponsorship_brochure_url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center text-green-700 hover:text-green-900 font-medium text-xs sm:text-sm"
-                    >
-                      <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                      View sponsorship brochure
-                    </a>
-                  </p>
+                {activeTab === 'influencers' ? (
+                  <p>You've expressed interest in this influencer's post. They have been notified and will contact you soon.</p>
+                ) : (
+                  <>
+                    <p>You've expressed interest in "{matchedOpportunity?.title}". The event organizer has been notified and will contact you soon.</p>
+                    {matchedOpportunity?.calendly_link && (
+                      <p className="mt-1 sm:mt-2">
+                        <a 
+                          href={matchedOpportunity.calendly_link} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-green-700 hover:text-green-900 font-medium text-xs sm:text-sm"
+                        >
+                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                          Schedule a meeting
+                        </a>
+                      </p>
+                    )}
+                    {matchedOpportunity?.sponsorship_brochure_url && (
+                      <p className="mt-1 sm:mt-2">
+                        <a 
+                          href={matchedOpportunity.sponsorship_brochure_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center text-green-700 hover:text-green-900 font-medium text-xs sm:text-sm"
+                        >
+                          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
+                          View sponsorship brochure
+                        </a>
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -636,7 +1142,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search by title or description..."
+                    placeholder="Search by title, description, or hashtags..."
                     className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
                   />
                   <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2" />
@@ -662,140 +1168,179 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
               </button>
             </div>
           ) : (
-            <div className="min-h-[400px] sm:min-h-[500px] bg-white rounded-lg shadow-sm overflow-hidden max-w-full pb-14 sm:pb-0">
-              {currentOpportunity ? (
-                <div className="flex flex-col">
-                  {currentOpportunity.media_urls && currentOpportunity.media_urls.length > 0 ? (
-                    <div className="h-48 sm:h-64 bg-gray-200">
-                      <img 
-                        src={currentOpportunity.media_urls[0]} 
-                        alt={currentOpportunity.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-48 sm:h-64 bg-gray-200 flex items-center justify-center">
-                      <p className="text-gray-500 text-xs sm:text-sm">No image available</p>
-                    </div>
-                  )}
-                  
-                  <div className="p-4 sm:p-6">
-                    <h2 className="text-lg sm:text-2xl font-bold text-gray-800 mb-2">{currentOpportunity.title}</h2>
-                    
-                    <div className="flex items-center text-gray-600 mb-3 sm:mb-4 text-xs sm:text-sm">
-                      <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                      <span>{currentOpportunity.location}</span>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-3 sm:mb-4">
-                      {currentOpportunity.start_date && (
-                        <div className="flex items-center">
-                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 mr-1 sm:mr-2" />
-                          <div>
-                            <p className="text-xs sm:text-sm text-gray-500">Date</p>
-                            <p className="font-medium text-xs sm:text-sm">
-                              {currentOpportunity.end_date &&
-                              new Date(currentOpportunity.start_date).toDateString() ===
-                              new Date(currentOpportunity.end_date).toDateString()
-                                ? new Date(currentOpportunity.start_date).toLocaleDateString()
-                                : `${new Date(currentOpportunity.start_date).toLocaleDateString()}${
-                                    currentOpportunity.end_date
-                                      ? ` - ${new Date(currentOpportunity.end_date).toLocaleDateString()}`
-                                      : ''
-                                  }`}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {currentOpportunity.price_range && (
-                        <div className="flex items-center">
-                          <DollarSign className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 mr-1 sm:mr-2" />
-                          <div>
-                            <p className="text-xs sm:text-sm text-gray-500">Budget</p>
-                            <p className="font-medium text-xs sm:text-sm">
-                              ₹{currentOpportunity.price_range.min} - ₹{currentOpportunity.price_range.max}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+            <div className="h-[calc(100vh-150px)] sm:h-[calc(100vh-100px)] overflow-y-auto snap-y snap-mandatory">
+              <AnimatePresence>
+                {opportunities.map((opportunity) => (
+                  <OpportunityCard
+                    key={opportunity.id}
+                    opportunity={opportunity}
+                    onLike={async (id: string) => {
+                      setSwipeActions(prev => ({ ...prev, [id]: 'like' }));
+                      await handleLike(id, 'opportunity');
+                    }}
+                    onReject={(id: string) => {
+                      setSwipeActions(prev => ({ ...prev, [id]: 'dislike' }));
+                      handleReject(id, 'opportunity');
+                    }}
+                    swipeAction={swipeActions[opportunity.id] || null}
+                    onAnimationComplete={handleAnimationComplete}
+                  />
+                ))}
+              </AnimatePresence>
+              <div className="snap-center flex-shrink-0 w-full h-[calc(100vh-150px)] sm:h-[calc(100vh-100px)] flex items-center justify-center">
+                <div className="text-center p-6">
+                  <Search className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-xl font-medium text-gray-700 mb-2">No more events available</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+                    You've gone through all available events matching your criteria.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
-                    <div className="flex flex-wrap gap-2 mb-3 sm:mb-4">
-                      {currentOpportunity.calendly_link && (
-                        <div className="flex items-center text-xs sm:text-sm text-[#2B4B9B]">
-                          <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                          <span>Calendly Available</span>
-                        </div>
-                      )}
-                      
-                      {currentOpportunity.sponsorship_brochure_url && (
-                        <div className="flex items-center text-xs sm:text-sm text-[#2B4B9B]">
-                          <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1" />
-                          <span>Brochure Available</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="text-gray-600 mb-4 sm:mb-6 text-xs sm:text-sm">
-                      {currentOpportunity.description && currentOpportunity.description.length > 100 && !showFullDescription ? (
-                        <>
-                          {currentOpportunity.description.slice(0, 100)}...
-                          <button
-                            onClick={() => setShowFullDescription(true)}
-                            className="text-[#2B4B9B] hover:text-[#1a2f61] text-xs sm:text-sm font-medium ml-1"
-                          >
-                            Read more
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          {currentOpportunity.description}
-                          {currentOpportunity.description && currentOpportunity.description.length > 100 && (
-                            <button
-                              onClick={() => setShowFullDescription(false)}
-                              className="text-[#2B4B9B] hover:text-[#1a2f61] text-xs sm:text-sm font-medium ml-1"
-                              >
-                              Read less
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="flex flex-row justify-center gap-2 sm:gap-4">
-                      <button
-                        onClick={() => handleReject(currentOpportunity.id)}
-                        className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-red-100 hover:bg-red-200 transition-colors"
-                      >
-                        <X className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-                      </button>
-                      <button
-                        onClick={() => handleLike(currentOpportunity.id)}
-                        className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-green-100 hover:bg-green-200 transition-colors"
-                      >
-                        <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                      </button>
-                    </div>
-                  </div>
+      {activeTab === 'influencers' && (
+        <>
+          {showFilters && (
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow-sm mb-4 max-w-full overflow-x-hidden">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 className="font-medium text-xs sm:text-sm">Filter Influencer Posts</h3>
+                <button 
+                  onClick={resetFilters}
+                  className="text-xs sm:text-sm text-[#2B4B9B] hover:text-[#1a2f61]"
+                >
+                  Reset Filters
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                    Category
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              ) : (
-                <div className="min-h-[400px] sm:min-h-[500px] flex items-center justify-center pb-14 sm:pb-0">
-                  <div className="text-center p-6">
-                    <Search className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-                    <h3 className="text-base sm:text-xl font-medium text-gray-700 mb-2">No more events available</h3>
-                    <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
-                      You've gone through all available events matching your criteria.
-                    </p>
-                    <button
-                      onClick={resetFilters}
-                      className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
-                    >
-                      Reset Filters
-                    </button>
-                  </div>
+
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                    Price Range
+                  </label>
+                  <select
+                    value={priceRangeFilter}
+                    onChange={(e) => setPriceRangeFilter(e.target.value)}
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
+                  >
+                    <option value="">Any Budget</option>
+                    <option value="0-10000">Under ₹10,000</option>
+                    <option value="10000-50000"> ₹10,000 - ₹50,000</option>
+                    <option value="50000-100000">₹50,000 - ₹1,00,000</option>
+                    <option value="100000-500000">₹1,00,000 - ₹5,00,000</option>
+                    <option value="500000-1000000">₹5,00,000 - ₹10,00,000</option>
+                    <option value="1000000-">Above ₹10,00,000</option>
+                  </select>
                 </div>
-              )}
+
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                    Location
+                  </label>
+                  <input
+                    type="text"
+                    value={locationSearch}
+                    onChange={(e) => setLocationSearch(e.target.value)}
+                    placeholder="Enter location..."
+                    className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3 sm:mt-4">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                  Search
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by title, description, or hashtags..."
+                    className="w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B] text-xs sm:text-sm"
+                  />
+                  <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {posts.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <Search className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+              </div>
+              <h3 className="text-base sm:text-xl font-medium text-gray-800 mb-2">No influencer posts found</h3>
+              <p className="text-xs sm:text-gray-600 mb-3 sm:mb-4">
+                We couldn't find any influencer posts matching your criteria. Try adjusting your filters.
+              </p>
+              <button
+                onClick={resetFilters}
+                className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
+              >
+                Reset Filters
+              </button>
+            </div>
+          ) : (
+            <div className="h-[calc(100vh-150px)] sm:h-[calc(100vh-100px)] overflow-y-auto snap-y snap-mandatory">
+              <AnimatePresence>
+                {posts.map((post) => (
+                  <InfluencerPostCard
+                    key={post.id}
+                    post={post}
+                    onLike={async (id: string) => {
+                      setSwipeActions(prev => ({ ...prev, [id]: 'like' }));
+                      await handleLike(id, 'post');
+                    }}
+                    onReject={(id: string) => {
+                      setSwipeActions(prev => ({ ...prev, [id]: 'dislike' }));
+                      handleReject(id, 'post');
+                    }}
+                    swipeAction={swipeActions[post.id] || null}
+                    onAnimationComplete={handleAnimationComplete}
+                  />
+                ))}
+              </AnimatePresence>
+              <div className="snap-center flex-shrink-0 w-full h-[calc(100vh-150px)] sm:h-[calc(100vh-100px)] flex items-center justify-center">
+                <div className="text-center p-6">
+                  <Search className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-xl font-medium text-gray-700 mb-2">No more influencer posts available</h3>
+                  <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
+                    You've gone through all available influencer posts matching your criteria.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-xs sm:text-sm"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </>

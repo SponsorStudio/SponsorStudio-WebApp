@@ -14,6 +14,7 @@
     "@emailjs/browser": "^4.4.1",
     "@supabase/supabase-js": "2.39.7",
     "@vercel/node": "^5.1.15",
+    "framer-motion": "^12.11.0",
     "gsap": "^3.13.0",
     "lucide-react": "0.344.0",
     "react": "18.2.0",
@@ -24,6 +25,7 @@
     "react-loading-skeleton": "^3.5.0",
     "react-phone-number-input": "^3.4.12",
     "react-router-dom": "6.22.2",
+    "react-swipeable": "^7.0.2",
     "twilio": "^5.5.2",
     "typescript": "5.2.2"
   },
