@@ -499,7 +499,7 @@ export default function BrandDashboard({ onUpdateProfile }: BrandDashboardProps)
           hasRefreshed.current = true;
           window.location.reload();
         }
-      }, 1500);
+      }, 2000);
 
       fetchCategories();
       fetchUserMatches();
