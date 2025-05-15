@@ -12,6 +12,7 @@ import Marquee from 'react-fast-marquee';
 import AdminDashboard from './dashboard/AdminDashboard';
 import BrandDashboard from './dashboard/BrandDashboard';
 import CreatorDashboard from './dashboard/CreatorDashboard';
+import InfluencerDashboard from './dashboard/InfluencerDashboard'; // NEW: Import InfluencerDashboard
 import ProfileSettings from './dashboard/ProfileSettings';
 import ScheduledMeetings from './dashboard/ScheduledMeetings';
 import { signOut } from '../lib/auth';
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opportunities, setOpportunities] = useState([]);
+  const [posts, setPosts] = useState([]); // NEW: State for influencer posts
   const [meetings, setMeetings] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -60,6 +62,7 @@ export default function Dashboard() {
 
     try {
       if (profile.user_type !== 'admin') {
+        // Fetch opportunities for creators/event organizers
         if (profile.user_type === 'creator' || profile.user_type === 'event_organizer') {
           const { data: opportunitiesData, error: opportunitiesError } = await supabase
             .from('opportunities')
@@ -68,6 +71,16 @@ export default function Dashboard() {
           
           if (opportunitiesError) throw opportunitiesError;
           setOpportunities(opportunitiesData || []);
+        }
+        // NEW: Fetch posts for influencers
+        else if (profile.user_type === 'influencer') {
+          const { data: postsData, error: postsError } = await supabase
+            .from('posts')
+            .select('*')
+            .eq('influencer_id', user.id);
+          
+          if (postsError) throw postsError;
+          setPosts(postsData || []);
         }
         
         let matchesQuery;
@@ -82,7 +95,7 @@ export default function Dashboard() {
               )
             `)
             .eq('brand_id', user.id);
-        } else {
+        } else if (profile.user_type === 'creator' || profile.user_type === 'event_organizer') {
           const { data: creatorOpps, error: oppsError } = await supabase
             .from('opportunities')
             .select('id')
@@ -100,6 +113,26 @@ export default function Dashboard() {
                 opportunities:opportunity_id (*)
               `)
               .in('opportunity_id', oppIds);
+          }
+        } else if (profile.user_type === 'influencer') {
+          // NEW: Fetch matches for influencer posts
+          const { data: influencerPosts, error: postsError } = await supabase
+            .from('posts')
+            .select('id')
+            .eq('influencer_id', user.id);
+          
+          if (postsError) throw postsError;
+          
+          if (influencerPosts && influencerPosts.length > 0) {
+            const postIds = influencerPosts.map(post => post.id);
+            matchesQuery = supabase
+              .from('matches')
+              .select(`
+                *,
+                profiles:brand_id (*),
+                posts:post_id (*)
+              `)
+              .in('post_id', postIds);
           }
         }
         
@@ -193,6 +226,7 @@ export default function Dashboard() {
   const isAdmin = profile?.user_type === 'admin';
   const isBrand = profile?.user_type === 'brand' || profile?.user_type === 'agency';
   const isCreator = profile?.user_type === 'creator' || profile?.user_type === 'event_organizer';
+  const isInfluencer = profile?.user_type === 'influencer'; // NEW: Check for influencer user type
 
   if (isAdmin) {
     return <AdminDashboard />;
@@ -333,6 +367,7 @@ export default function Dashboard() {
           <>
             {isBrand && <BrandDashboard onUpdateProfile={handleUpdateProfile} />}
             {isCreator && <CreatorDashboard onUpdateProfile={handleUpdateProfile} />}
+            {isInfluencer && <InfluencerDashboard onUpdateProfile={handleUpdateProfile} />} {/* NEW: Render InfluencerDashboard */}
           </>
         )}
         {activeTab === 'profile' && (
