@@ -6,10 +6,10 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import Dashboard from './components/Dashboard';
 import AdminLogin from './components/AdminLogin';
-// import AdminSignup from './components/AdminSignup';
 import AdminDashboard from './components/dashboard/AdminDashboard';
 import ProtectedAdminRoute from './components/ProtectedAdminRoute';
 import SuccessStoryPage from './components/SuccessStoryPage';
+import ProfilePage from './components/ProfilePage';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -19,8 +19,8 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<App />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route path="/admin" element={<AdminLogin />} />
-          {/* <Route path="/admin/signup" element={<AdminSignup />} /> */}
           <Route 
             path="/admin/*" 
             element={
@@ -30,8 +30,8 @@ createRoot(document.getElementById('root')!).render(
             } 
           />
           <Route path="/story/:id" element={<SuccessStoryPage />} />
+          
           <Route path="*" element={<Navigate to="/" replace />} />
-          {/* <Route path="/admin/*" element={<AdminDashboard />} /> */}
         </Routes>
       </Router>
       <Toaster
@@ -40,7 +40,7 @@ createRoot(document.getElementById('root')!).render(
           duration: 4000,
           style: {
             background: '#f0faf5',
-          color: '#047857',
+            color: '#047857',
             maxWidth: '500px',
             padding: '16px',
             borderRadius: '8px',

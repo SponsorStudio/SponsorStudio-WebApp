@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import {
@@ -86,6 +86,9 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [matchFilter, setMatchFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const isFetching = useRef(false);
+  const refreshCount = useRef(0);
 
   const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
   const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
@@ -96,145 +99,172 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   }, [EMAILJS_PUBLIC_KEY]);
 
   const fetchCategories = async () => {
-    console.time('fetchCategories');
-    // Check localStorage for cached categories
-    const cachedCategories = localStorage.getItem('categories');
-    if (cachedCategories) {
-      setCategories(JSON.parse(cachedCategories));
-      console.timeEnd('fetchCategories');
-      return;
-    }
-    const { data, error } = await supabase.from('categories').select('id, name').limit(100);
-    console.timeEnd('fetchCategories');
-    if (error) {
-      console.error('Error fetching categories:', error);
+    try {
+      const cachedCategories = localStorage.getItem('categories');
+      if (cachedCategories) {
+        setCategories(JSON.parse(cachedCategories));
+        return;
+      }
+      const { data, error } = await supabase.from('categories').select('id, name').limit(100);
+      if (error) {
+        console.error('Error fetching categories:', error);
+        toast.error('Failed to load categories');
+        return;
+      }
+      setCategories(data || []);
+      localStorage.setItem('categories', JSON.stringify(data || []));
+    } catch (error) {
+      console.error('Error in fetchCategories:', error);
       toast.error('Failed to load categories');
-      return;
+      setError('Failed to load categories');
     }
-    setCategories(data || []);
-    localStorage.setItem('categories', JSON.stringify(data || []));
   };
 
   const fetchOpportunities = async () => {
-    if (!user) return true; // Return true to indicate empty state
-    console.time('fetchOpportunities');
-    // Lightweight query to check for opportunities
-    const { data, error } = await supabase
-      .from('opportunities')
-      .select('id')
-      .eq('creator_id', user.id)
-      .limit(1);
-    console.timeEnd('fetchOpportunities');
-    if (error) {
-      console.error('Error checking opportunities:', error);
-      toast.error('Failed to load opportunities');
+    if (!user) {
+      setOpportunities([]);
+      return true;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('creator_id', user.id)
+        .limit(50); // Added pagination
+      if (error) {
+        console.error('Error fetching opportunities:', error);
+        toast.error('Failed to load opportunities');
+        throw error;
+      }
+      setOpportunities(data || []);
+      return data.length === 0;
+    } catch (error) {
+      console.error('Error in fetchOpportunities:', error);
+      setOpportunities([]);
+      setError('Failed to load opportunities');
       throw error;
     }
-    if (data.length === 0) {
-      setOpportunities([]);
-      return true; // Empty state
-    }
-    // Fetch full opportunity data if opportunities exist
-    console.time('fetchFullOpportunities');
-    const { data: fullData, error: fullError } = await supabase
-      .from('opportunities')
-      .select('*')
-      .eq('creator_id', user.id);
-    console.timeEnd('fetchFullOpportunities');
-    if (fullError) {
-      console.error('Error fetching opportunities:', fullError);
-      toast.error('Failed to load opportunities');
-      throw fullError;
-    }
-    setOpportunities(fullData || []);
-    return false; // Non-empty state
   };
 
   const fetchMatches = async () => {
-    if (!user) return;
-    console.time('fetchMatches');
-    const { data: creatorOpps, error: oppsError } = await supabase
-      .from('opportunities')
-      .select('id')
-      .eq('creator_id', user.id)
-      .limit(1);
-    if (oppsError) {
-      console.error('Error checking opportunities:', oppsError);
-      toast.error('Failed to load matches');
-      throw oppsError;
-    }
-    if (!creatorOpps || creatorOpps.length === 0) {
+    if (!user) {
       setMatches([]);
-      console.timeEnd('fetchMatches');
       return;
     }
-    const oppIds = creatorOpps.map((opp) => opp.id);
-    const { data: matchesData, error: matchesError } = await supabase
-      .from('matches')
-      .select(`
-        id,
-        status,
-        created_at,
-        updated_at,
-        opportunity_id,
-        brand_id,
-        meeting_link,
-        meeting_scheduled_at,
-        notes,
-        profiles:brand_id (company_name, industry, contact_person_name, contact_person_phone, email),
-        opportunities:opportunity_id (title)
-      `)
-      .in('opportunity_id', oppIds);
-    console.timeEnd('fetchMatches');
-    if (matchesError) {
-      console.error('Error fetching matches:', matchesError);
+    try {
+      const { data: creatorOpps, error: oppsError } = await supabase
+        .from('opportunities')
+        .select('id')
+        .eq('creator_id', user.id)
+        .limit(50);
+      if (oppsError) {
+        console.error('Error checking opportunities:', oppsError);
+        toast.error('Failed to load matches');
+        throw oppsError;
+      }
+      if (!creatorOpps || creatorOpps.length === 0) {
+        setMatches([]);
+        return;
+      }
+      const oppIds = creatorOpps.map((opp) => opp.id);
+      const { data: matchesData, error: matchesError } = await supabase
+        .from('matches')
+        .select(`
+          id,
+          status,
+          created_at,
+          updated_at,
+          opportunity_id,
+          brand_id,
+          meeting_link,
+          meeting_scheduled_at,
+          notes,
+          profiles:brand_id (company_name, industry, contact_person_name, contact_person_phone, email),
+          opportunities:opportunity_id (title)
+        `)
+        .in('opportunity_id', oppIds)
+        .limit(100);
+      if (matchesError) {
+        console.error('Error fetching matches:', matchesError);
+        toast.error('Failed to load matches');
+        throw matchesError;
+      }
+      setMatches(matchesData as Match[] || []);
+    } catch (error) {
+      console.error('Error in fetchMatches:', error);
+      setMatches([]);
+      setError('Failed to load matches');
       toast.error('Failed to load matches');
-      throw matchesError;
     }
-    setMatches(matchesData as Match[] || []);
   };
 
   useEffect(() => {
     if (!user) {
-      console.log('No user, skipping fetch');
+      setOpportunities([]);
+      setMatches([]);
       setLoading(false);
       return;
     }
 
-    console.time('fetchData');
-    let channel;
+    if (isFetching.current) {
+      return;
+    }
+
+    isFetching.current = true;
+    let channel: any;
+    let timeoutId: NodeJS.Timeout | null = null;
+
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch categories and check opportunities in parallel
-        const [_, isEmpty] = await Promise.all([fetchCategories(), fetchOpportunities()]);
 
-        if (isEmpty) {
+        // Prevent infinite refresh loops
+        if (refreshCount.current >= 2) {
+          setError('Failed to load data after multiple attempts');
           setLoading(false);
-          console.timeEnd('fetchData');
+          isFetching.current = false;
           return;
         }
 
-        // Fetch matches only if opportunities exist
-        await fetchMatches();
+        timeoutId = setTimeout(() => {
+          if (loading) {
+            console.warn('Loading exceeded 2 seconds, refreshing page');
+            refreshCount.current += 1;
+            window.location.reload();
+          }
+        }, 2000);
 
-        // Set up real-time subscription only if opportunities exist
-        channel = supabase
-          .channel('matches-changes')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'matches' },
-            () => {
-              fetchMatches();
-            }
-          )
-          .subscribe();
+        const [, isEmpty] = await Promise.all([fetchCategories(), fetchOpportunities()]);
+
+        if (!isEmpty) {
+          await fetchMatches();
+          channel = supabase
+            .channel('matches-changes')
+            .on(
+              'postgres_changes',
+              { event: '*', schema: 'public', table: 'matches' },
+              () => {
+                fetchMatches();
+              }
+            )
+            .subscribe((status: string, err: any) => {
+              if (status === 'SUBSCRIBED') {
+                console.log('Real-time subscription active');
+              } else if (err) {
+                console.error('Subscription error:', err);
+              }
+            });
+        }
       } catch (error) {
         console.error('Error fetching data:', error);
         toast.error('Failed to load dashboard data');
+        setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
-        console.timeEnd('fetchData');
+        isFetching.current = false;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
     };
 
@@ -244,8 +274,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       if (channel) {
         supabase.removeChannel(channel);
       }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      isFetching.current = false;
     };
-  }, [user]);
+  }, [user?.id]); // Use user.id to stabilize dependency
 
   const fetchBrandEmail = async (brandId: string): Promise<string> => {
     try {
@@ -401,12 +435,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         const uploadPromises = formData.media_files.map(async (file) => {
           const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
           const filePath = `opportunities/${user.id}/${fileName}`;
-          const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as ArrayBuffer);
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsArrayBuffer(file);
-          });
+          const fileBuffer = await file.arrayBuffer();
           const { data, error } = await supabase.storage
             .from('media')
             .upload(filePath, fileBuffer, {
@@ -430,12 +459,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         const file = formData.sponsorship_brochure_file;
         const fileName = `${Date.now()}_brochure_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
         const filePath = `opportunities/${user.id}/${fileName}`;
-        const fileBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as ArrayBuffer);
-          reader.onerror = () => reject(new Error('Failed to read file'));
-          reader.readAsArrayBuffer(file);
-        });
+        const fileBuffer = await file.arrayBuffer();
         const { data, error } = await supabase.storage
           .from('media')
           .upload(filePath, fileBuffer, {
@@ -497,8 +521,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         calendly_link: '',
         sponsorship_brochure_url: '',
         verification_status: 'pending',
-        media_files: undefined,
-        sponsorship_brochure_file: undefined,
       });
       setMediaPreviews([]);
       setShowForm(false);
@@ -507,6 +529,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       fetchOpportunities();
     } catch (error: any) {
       toast.error(`Failed to save event: ${error.message}`);
+      setError(`Failed to save event: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -532,8 +555,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       calendly_link: opportunity.calendly_link || '',
       sponsorship_brochure_url: opportunity.sponsorship_brochure_url || '',
       verification_status: opportunity.verification_status,
-      media_files: undefined,
-      sponsorship_brochure_file: undefined,
     });
     setMediaPreviews([]);
     setIsEditing(true);
@@ -554,6 +575,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       fetchOpportunities();
     } catch (error: any) {
       toast.error('Failed to delete event');
+      setError('Failed to delete event');
     } finally {
       setShowDeleteModal(false);
       setDeleteTargetId(null);
@@ -583,6 +605,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       fetchOpportunities();
     } catch (error: any) {
       toast.error('Failed to update event status');
+      setError('Failed to update event status');
     }
   };
 
@@ -654,6 +677,33 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const acceptedMatches = matches.filter((match) => match.status === 'accepted');
   const rejectedMatches = matches.filter((match) => match.status === 'rejected');
 
+  const isVideoUrl = (url: string): boolean => {
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv'];
+    return videoExtensions.some((ext) => url.toLowerCase().endsWith(ext));
+  };
+
+  if (error) {
+    return (
+      <div className="pb-14 sm:pb-0 text-center">
+        <div className="bg-red-50 p-6 rounded-lg">
+          <h2 className="text-xl font-bold text-red-800">Error</h2>
+          <p className="text-red-600">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              refreshCount.current = 0;
+              window.location.reload();
+            }}
+            className="mt-4 px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="pb-14 sm:pb-0">
@@ -695,6 +745,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
 
   return (
     <div className="pb-14 sm:pb-0">
+      <Toaster />
       <Modal
         isOpen={showDeleteModal}
         onClose={handleDeleteCancel}
@@ -1016,8 +1067,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   calendly_link: '',
                   sponsorship_brochure_url: '',
                   verification_status: 'pending',
-                  media_files: undefined,
-                  sponsorship_brochure_file: undefined,
                 });
                 setMediaPreviews([]);
               }}
@@ -1302,12 +1351,21 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               <h4 className="text-sm font-medium text-gray-700">Media:</h4>
                               <div className="flex flex-wrap gap-2 mt-2">
                                 {opportunity.media_urls.map((url, index) => (
-                                  <img
-                                    key={index}
-                                    src={url}
-                                    alt={`Media ${index + 1}`}
-                                    className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
-                                  />
+                                  <div key={index} className="relative">
+                                    {isVideoUrl(url) ? (
+                                      <video
+                                        src={url}
+                                        controls
+                                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
+                                      />
+                                    ) : (
+                                      <img
+                                        src={url}
+                                        alt={`Media ${index + 1}`}
+                                        className="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded"
+                                      />
+                                    )}
+                                  </div>
                                 ))}
                               </div>
                             </div>
@@ -1663,7 +1721,6 @@ function getVerificationStatusBadge(status: string) {
   }
 }
 
-// Add CSS for indeterminate progress animation
 const styleSheet = document.createElement('style');
 styleSheet.innerText = `
   @keyframes indeterminate {
