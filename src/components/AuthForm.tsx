@@ -295,7 +295,7 @@ export default function AuthForm({ onSuccess, onSignUpSuccess }: AuthFormProps) 
             >
               <option value="brand">Brand</option>
               <option value="agency">Marketing Agency</option>
-              <option value="creator">Creator</option>
+              <option value="influencer">Influencer</option>
               <option value="event_organizer">Event Organizer</option>
             </select>
           </div>
