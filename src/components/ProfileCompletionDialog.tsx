@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertCircle, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -8,22 +7,9 @@ interface ProfileCompletionDialogProps {
 }
 
 export default function ProfileCompletionDialog({ onClose }: ProfileCompletionDialogProps) {
-  const navigate = useNavigate();
   const { setShowProfileDialog } = useAuth();
 
-  const handleUpdateProfile = () => {
-    setShowProfileDialog(false);
-    onClose();
-    navigate('/dashboard', { state: { activeTab: 'profile' } });
-  };
-
-  const handleRemindLater = () => {
-    setShowProfileDialog(false);
-    navigate('/dashboard');
-    onClose();
-  };
-
-  const handleClose = () => {
+  const handleLinkClick = () => {
     setShowProfileDialog(false);
     onClose();
   };
@@ -32,7 +18,10 @@ export default function ProfileCompletionDialog({ onClose }: ProfileCompletionDi
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 relative">
         <button
-          onClick={handleClose}
+          onClick={() => {
+            setShowProfileDialog(false);
+            onClose();
+          }}
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Close dialog"
         >
@@ -60,18 +49,20 @@ export default function ProfileCompletionDialog({ onClose }: ProfileCompletionDi
           </ul>
         </div>
         <div className="mt-6 flex justify-end space-x-3">
-          <button
-            onClick={handleRemindLater}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+          <a
+            href="/dashboard"
+            onClick={handleLinkClick}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-center"
           >
             Remind Me Later
-          </button>
-          <button
-            onClick={handleUpdateProfile}
-            className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61]"
+          </a>
+          <a
+            href="/dashboard"
+            onClick={handleLinkClick}
+            className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] text-center"
           >
             Update Profile
-          </button>
+          </a>
         </div>
       </div>
     </div>
