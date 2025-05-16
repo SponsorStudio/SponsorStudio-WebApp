@@ -205,11 +205,9 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       setLoading(false);
       return;
     }
-
     if (isFetching.current) {
       return;
     }
-
     isFetching.current = true;
     let channel: any;
     let timeoutId: NodeJS.Timeout | null = null;
@@ -218,7 +216,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       try {
         setLoading(true);
 
-        // Prevent infinite refresh loops
         if (refreshCount.current >= 2) {
           setError('Failed to load data after multiple attempts');
           setLoading(false);
@@ -235,7 +232,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         }, 2000);
 
         const [, isEmpty] = await Promise.all([fetchCategories(), fetchOpportunities()]);
-
         if (!isEmpty) {
           await fetchMatches();
           channel = supabase
@@ -262,9 +258,7 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       } finally {
         setLoading(false);
         isFetching.current = false;
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
+        if (timeoutId) clearTimeout(timeoutId);
       }
     };
 
@@ -279,12 +273,12 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       }
       isFetching.current = false;
     };
-  }, [user?.id]); // Use user.id to stabilize dependency
+  }, [user?.id]);
 
   const fetchBrandEmail = async (brandId: string): Promise<string> => {
     try {
       const response = await fetch(
-        'https://urablfvmqregyvfyaovi.supabase.co/functions/v1/get-user-email',
+        'https://urablfvmqregyvfyaovi.supabase.co/functions/v1/get-user-email ',
         {
           method: 'POST',
           headers: {
@@ -430,7 +424,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
     try {
       let mediaUrls: string[] = formData.media_urls || [];
       let sponsorshipBrochureUrl: string | undefined;
-
       if (formData.media_files && formData.media_files.length > 0) {
         const uploadPromises = formData.media_files.map(async (file) => {
           const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -454,7 +447,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         });
         mediaUrls = await Promise.all(uploadPromises);
       }
-
       if (formData.sponsorship_brochure_file) {
         const file = formData.sponsorship_brochure_file;
         const fileName = `${Date.now()}_brochure_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -476,7 +468,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         }
         sponsorshipBrochureUrl = publicUrlData.publicUrl;
       }
-
       const opportunityData = {
         ...formData,
         creator_id: user.id,
@@ -491,7 +482,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
       };
       delete opportunityData.media_files;
       delete opportunityData.sponsorship_brochure_file;
-
       if (isEditing && selectedOpportunityId) {
         const { error } = await supabase
           .from('opportunities')
@@ -504,7 +494,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         if (error) throw error;
         toast.success('Event created successfully');
       }
-
       setFormData({
         title: '',
         description: '',
@@ -633,28 +622,25 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
   const generateGoogleCalendarLink = (match: Match) => {
     const event = {
       title: `Meeting for ${match.opportunities?.title || 'Opportunity'}`,
-      description: `Meeting with brand and creator.\nJoin Meeting: ${match.meeting_link || ''}`,
+      description: `Meeting with brand and creator.
+Join Meeting: ${match.meeting_link || ''}`,
       start: match.meeting_scheduled_at || new Date().toISOString(),
       end: match.meeting_scheduled_at
         ? new Date(new Date(match.meeting_scheduled_at).getTime() + 60 * 60 * 1000).toISOString()
         : new Date().toISOString(),
       location: match.meeting_link || '',
     };
-
     const formatDate = (date: string) => {
       return new Date(date).toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     };
-
     const startDate = formatDate(event.start);
     const endDate = formatDate(event.end);
-
-    const googleCalendarUrl = new URL('https://calendar.google.com/calendar/render');
+    const googleCalendarUrl = new URL('https://calendar.google.com/calendar/render ');
     googleCalendarUrl.searchParams.append('action', 'TEMPLATE');
     googleCalendarUrl.searchParams.append('text', event.title);
     googleCalendarUrl.searchParams.append('dates', `${startDate}/${endDate}`);
     googleCalendarUrl.searchParams.append('details', event.description);
     googleCalendarUrl.searchParams.append('location', event.location);
-
     return googleCalendarUrl.toString();
   };
 
@@ -755,7 +741,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
         confirmText="Delete"
         cancelText="Cancel"
       />
-
       {showForm ? (
         <div className="fixed inset-0 bg-white overflow-y-auto pb-14 sm:static sm:bg-transparent sm:overflow-visible">
           <div className="relative p-4 sm:p-6 pt-12 sm:pt-6 bg-white rounded-lg shadow-sm sm:mb-6">
@@ -803,7 +788,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   </select>
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
                 <textarea
@@ -815,7 +799,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   required
                 ></textarea>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
@@ -849,7 +832,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   />
                 </div>
               </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -884,7 +866,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Requirements</label>
                 <textarea
@@ -895,7 +876,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 ></textarea>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Benefits</label>
                 <textarea
@@ -906,7 +886,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 ></textarea>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Upload Media Files (Images/Videos)
@@ -963,7 +942,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   </div>
                 )}
               </div>
-
               <div style={{ display: 'none' }}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Calendly Link</label>
                 <input
@@ -971,14 +949,13 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   name="calendly_link"
                   value={formData.calendly_link}
                   onChange={handleInputChange}
-                  placeholder="https://calendly.com/your-link"
+                  placeholder="https://calendly.com/your-link "
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#2B4B9B] focus:border-[#2B4B9B]"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Add your Calendly link for brands to schedule meetings with you
                 </p>
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Upload Sponsorship Brochure (PDF)
@@ -1008,7 +985,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   </div>
                 )}
               </div>
-
               <div className="flex justify-end space-x-2 mt-6">
                 <button
                   type="button"
@@ -1076,7 +1052,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               <span>Create Event</span>
             </button>
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -1092,7 +1067,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                 </span>
               </div>
             </div>
-
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-800">Pending Matches</h3>
@@ -1105,7 +1079,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                 <span className="text-gray-500">Awaiting your response</span>
               </div>
             </div>
-
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-800">Accepted Matches</h3>
@@ -1118,7 +1091,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                 <span className="text-gray-500">Confirmed partnerships</span>
               </div>
             </div>
-
             <div className="bg-white p-6 rounded-lg shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-800">Rejected Matches</h3>
@@ -1132,7 +1104,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               </div>
             </div>
           </div>
-
           <div className="mb-6 border-b border-gray-200">
             <div className="flex space-x-8">
               <button
@@ -1162,7 +1133,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               </button>
             </div>
           </div>
-
           {activeTab === 'opportunities' && (
             <>
               {opportunities.length === 0 ? (
@@ -1251,7 +1221,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               </button>
                             </div>
                           </div>
-
                           {opportunity.verification_status === 'pending' && (
                             <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center">
                               <AlertCircle className="w-5 h-5 text-yellow-500 mr-2 flex-shrink-0" />
@@ -1261,7 +1230,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               </p>
                             </div>
                           )}
-
                           {opportunity.verification_status === 'rejected' && (
                             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center">
                               <AlertCircle className="w-5 h-5 text-red-500 mr-2 flex-shrink-0" />
@@ -1277,7 +1245,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               </div>
                             </div>
                           )}
-
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                             <div className="flex items-center">
                               <MapPin className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
@@ -1285,7 +1252,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                 {opportunity.location}
                               </span>
                             </div>
-
                             {opportunity.start_date && (
                               <div className="flex items-center">
                                 <Calendar className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
@@ -1302,7 +1268,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                 </span>
                               </div>
                             )}
-
                             {opportunity.reach && (
                               <div className="flex items-center">
                                 <Users className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
@@ -1311,7 +1276,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                 </span>
                               </div>
                             )}
-
                             {opportunity.price_range && (
                               <div className="flex items-center">
                                 <DollarSign className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
@@ -1323,7 +1287,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                               </div>
                             )}
                           </div>
-
                           <div className="flex flex-wrap gap-2 mb-4">
                             {opportunity.calendly_link && (
                               <div className="flex items-center text-sm text-[#2B4B9B]">
@@ -1331,7 +1294,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                 <span>Calendly Link Available</span>
                               </div>
                             )}
-
                             {opportunity.sponsorship_brochure_url && (
                               <div className="flex items-center text-sm text-[#2B4B9B]">
                                 <LinkIcon className="w-4 h-4 mr-1" />
@@ -1371,7 +1333,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                             </div>
                           )}
                           <p className="text-gray-600 mb-4">{opportunity.description}</p>
-
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                             <div className="flex items-center mb-2 sm:mb-0">
                               <span className="text-sm font-medium text-gray-700 mr-2">
@@ -1394,7 +1355,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                             </div>
                           </div>
                         </div>
-
                         {isExpanded && opportunityMatches.length > 0 && (
                           <div className="border-t border-gray-200 p-4 bg-gray-50">
                             <h4 className="font-medium text-gray-800 mb-2">Matches</h4>
@@ -1438,7 +1398,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                                         </p>
                                       )}
                                     </div>
-
                                     {match.status === 'pending' && (
                                       <div className="flex space-x-2">
                                         <button
@@ -1488,7 +1447,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
               )}
             </>
           )}
-
           {activeTab === 'matches' && (
             <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
@@ -1503,7 +1461,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   </button>
                 </div>
               </div>
-
               <div className="mb-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div className="relative w-full sm:w-64">
@@ -1533,7 +1490,6 @@ export default function CreatorDashboard({ onUpdateProfile }: BrandDashboardProp
                   </div>
                 </div>
               </div>
-
               {filteredMatches.length === 0 ? (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">

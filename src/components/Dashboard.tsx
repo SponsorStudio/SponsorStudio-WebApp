@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+// Dashboard.tsx
+
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { ArrowRight, Building2, BarChart3, FileCheck, MessageSquare, Menu, ChevronRight, X, Home, Calendar, FileText, User, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -12,7 +14,7 @@ import Marquee from 'react-fast-marquee';
 import AdminDashboard from './dashboard/AdminDashboard';
 import BrandDashboard from './dashboard/BrandDashboard';
 import CreatorDashboard from './dashboard/CreatorDashboard';
-import InfluencerDashboard from './dashboard/InfluencerDashboard'; // NEW: Import InfluencerDashboard
+import InfluencerDashboard from './dashboard/InfluencerDashboard';
 import ProfileSettings from './dashboard/ProfileSettings';
 import ScheduledMeetings from './dashboard/ScheduledMeetings';
 import { signOut } from '../lib/auth';
@@ -32,7 +34,7 @@ export default function Dashboard() {
   const [userProfile, setUserProfile] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [opportunities, setOpportunities] = useState([]);
-  const [posts, setPosts] = useState([]); // NEW: State for influencer posts
+  const [posts, setPosts] = useState([]);
   const [meetings, setMeetings] = useState([]);
   const [selectedOpportunity, setSelectedOpportunity] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -62,7 +64,6 @@ export default function Dashboard() {
 
     try {
       if (profile.user_type !== 'admin') {
-        // Fetch opportunities for creators/event organizers
         if (profile.user_type === 'creator' || profile.user_type === 'event_organizer') {
           const { data: opportunitiesData, error: opportunitiesError } = await supabase
             .from('opportunities')
@@ -71,9 +72,7 @@ export default function Dashboard() {
           
           if (opportunitiesError) throw opportunitiesError;
           setOpportunities(opportunitiesData || []);
-        }
-        // NEW: Fetch posts for influencers
-        else if (profile.user_type === 'influencer') {
+        } else if (profile.user_type === 'influencer') {
           const { data: postsData, error: postsError } = await supabase
             .from('posts')
             .select('*')
@@ -115,7 +114,6 @@ export default function Dashboard() {
               .in('opportunity_id', oppIds);
           }
         } else if (profile.user_type === 'influencer') {
-          // NEW: Fetch matches for influencer posts
           const { data: influencerPosts, error: postsError } = await supabase
             .from('posts')
             .select('id')
@@ -223,10 +221,30 @@ export default function Dashboard() {
     );
   }
 
-  const isAdmin = profile?.user_type === 'admin';
-  const isBrand = profile?.user_type === 'brand' || profile?.user_type === 'agency';
-  const isCreator = profile?.user_type === 'creator' || profile?.user_type === 'event_organizer';
-  const isInfluencer = profile?.user_type === 'influencer'; // NEW: Check for influencer user type
+  // Check if profile is null
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex justify-center items-center p-6">
+        <div className="bg-white rounded-lg shadow-md p-6 max-w-md w-full text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Profile Setup Required</h2>
+          <p className="text-gray-600 mb-6">
+            It looks like your profile isn’t set up yet. Please complete your profile to access the dashboard.
+          </p>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className="px-4 py-2 bg-[#2B4B9B] text-white rounded-lg hover:bg-[#1a2f61] transition-colors"
+          >
+            Go to Profile Settings
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isAdmin = profile.user_type === 'admin';
+  const isBrand = profile.user_type === 'brand' || profile.user_type === 'agency';
+  const isCreator = profile.user_type === 'creator' || profile.user_type === 'event_organizer';
+  const isInfluencer = profile.user_type === 'influencer';
 
   if (isAdmin) {
     return <AdminDashboard />;
@@ -367,7 +385,7 @@ export default function Dashboard() {
           <>
             {isBrand && <BrandDashboard onUpdateProfile={handleUpdateProfile} />}
             {isCreator && <CreatorDashboard onUpdateProfile={handleUpdateProfile} />}
-            {isInfluencer && <InfluencerDashboard onUpdateProfile={handleUpdateProfile} />} {/* NEW: Render InfluencerDashboard */}
+            {isInfluencer && <InfluencerDashboard onUpdateProfile={handleUpdateProfile} />}
           </>
         )}
         {activeTab === 'profile' && (
