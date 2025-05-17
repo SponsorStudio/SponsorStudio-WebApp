@@ -1,5 +1,5 @@
-import React, { memo, useState, useEffect } from 'react';
-import { DollarSign, MapPin, Users, Hash, Heart, X } from 'lucide-react';
+import React, { memo, useState, useEffect, useRef } from 'react';
+import { DollarSign, MapPin, Users, Hash, Heart, X, Volume2, VolumeX } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import type { Post } from './types';
 
@@ -20,11 +20,8 @@ const useSwipeAnimation = (
   const likeOpacity = useTransform(x, [0, 150], [0, 1]);
   const dislikeOpacity = useTransform(x, [-150, 0], [1, 0]);
 
-  // Reset position when action completes
   useEffect(() => {
-    return x.onChange(() => {
-      // Force re-render on motion value change
-    });
+    return x.onChange(() => {});
   }, [x]);
 
   const handleDragEnd = async (event: any, info: any) => {
@@ -37,7 +34,6 @@ const useSwipeAnimation = (
           onReject();
         }
       } else {
-        // Animate back to center with spring
         x.set(0, {
           type: 'spring',
           stiffness: 300,
@@ -46,7 +42,7 @@ const useSwipeAnimation = (
       }
     } catch (error) {
       console.error('Swipe animation error:', error);
-      x.set(0, true); // Fallback to instant reset
+      x.set(0, true);
     }
   };
 
@@ -61,11 +57,55 @@ const InfluencerPostCard: React.FC<InfluencerPostCardProps> = memo(
     );
 
     const [showFullDescription, setShowFullDescription] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [showMuteIndicator, setShowMuteIndicator] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
-    // Reset position when post changes
     useEffect(() => {
       x.set(0);
     }, [post.id, x]);
+
+    useEffect(() => {
+      let timeout: NodeJS.Timeout;
+      if (showMuteIndicator) {
+        timeout = setTimeout(() => {
+          setShowMuteIndicator(false);
+        }, 2000);
+      }
+      return () => clearTimeout(timeout);
+    }, [showMuteIndicator]);
+
+    useEffect(() => {
+      if (!videoRef.current) return;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            videoRef.current.muted = isMuted;
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                console.error('Video playback failed:', error);
+                setIsMuted(true);
+                videoRef.current.muted = true;
+                videoRef.current.play().catch(err => {
+                  console.error('Video playback failed even when muted:', err);
+                });
+              });
+            }
+          } else {
+            videoRef.current.pause();
+          }
+        },
+        { threshold: 0.5 }
+      );
+
+      observer.observe(videoRef.current);
+
+      return () => {
+        observer.disconnect();
+      };
+    }, [post.id, isMuted]);
 
     const handleButtonAction = async (action: 'like' | 'dislike') => {
       try {
@@ -76,6 +116,15 @@ const InfluencerPostCard: React.FC<InfluencerPostCardProps> = memo(
         }
       } catch (error) {
         console.error(`Action ${action} failed:`, error);
+      }
+    };
+
+    const handleVideoClick = () => {
+      if (videoRef.current) {
+        const newMuteState = !isMuted;
+        videoRef.current.muted = newMuteState;
+        setIsMuted(newMuteState);
+        setShowMuteIndicator(true);
       }
     };
 
@@ -114,7 +163,7 @@ const InfluencerPostCard: React.FC<InfluencerPostCardProps> = memo(
           x, 
           rotate,
           willChange: 'transform',
-          touchAction: 'pan-y' // Prevent vertical scrolling while swiping
+          touchAction: 'pan-y'
         }}
         transition={{ 
           type: 'spring', 
@@ -130,16 +179,37 @@ const InfluencerPostCard: React.FC<InfluencerPostCardProps> = memo(
       >
         {/* Media Section */}
         {post.video_url ? (
-          <video 
-            autoPlay 
-            loop 
-            muted 
-            className="w-full h-full object-cover"
-            playsInline
-          >
-            <source src={post.video_url} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+          <div className="relative w-full h-full">
+            <video 
+              ref={videoRef}
+              loop 
+              muted={isMuted}
+              playsInline
+              className="w-full h-full object-cover"
+              onClick={handleVideoClick}
+            >
+              <source src={post.video_url} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            <motion.div
+              className="absolute top-4 right-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: showMuteIndicator ? 1 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <button
+                onClick={handleVideoClick}
+                className="p-2 bg-black/70 rounded-full hover:bg-black/90 transition-colors duration-200"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? (
+                  <VolumeX className="w-5 h-5 text-white" />
+                ) : (
+                  <Volume2 className="w-5 h-5 text-white" />
+                )}
+              </button>
+            </motion.div>
+          </div>
         ) : post.media_urls && post.media_urls.length > 0 ? (
           <img
             src={post.media_urls[0]}
@@ -278,7 +348,6 @@ const InfluencerPostCard: React.FC<InfluencerPostCardProps> = memo(
   }
 );
 
-// Add display name for easier debugging
 InfluencerPostCard.displayName = 'InfluencerPostCard';
 
 export default InfluencerPostCard;
