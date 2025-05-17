@@ -1,5 +1,5 @@
-import React, { memo, useState, useEffect, useMemo } from 'react';
-import { Calendar, DollarSign, MapPin, FileText, Heart, X } from 'lucide-react';
+import React, { memo, useState, useEffect, useMemo, useRef } from 'react';
+import { Calendar, DollarSign, MapPin, FileText, Heart, X, Volume2, VolumeX } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 
 interface Opportunity {
@@ -35,11 +35,8 @@ const useSwipeAnimation = (
   const likeOpacity = useTransform(x, [0, 150], [0, 1]);
   const dislikeOpacity = useTransform(x, [-150, 0], [1, 0]);
 
-  // Reset position when action completes
   useEffect(() => {
-    return x.onChange(() => {
-      // Force re-render on motion value change
-    });
+    return x.onChange(() => {});
   }, [x]);
 
   const handleDragEnd = async (event: any, info: any) => {
@@ -52,7 +49,6 @@ const useSwipeAnimation = (
           onReject();
         }
       } else {
-        // Animate back to center with spring
         x.set(0, {
           type: 'spring',
           stiffness: 300,
@@ -61,7 +57,7 @@ const useSwipeAnimation = (
       }
     } catch (error) {
       console.error('Swipe animation error:', error);
-      x.set(0, true); // Fallback to instant reset
+      x.set(0, true);
     }
   };
 
@@ -76,11 +72,55 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
     );
 
     const [showFullDescription, setShowFullDescription] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [showMuteIndicator, setShowMuteIndicator] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
 
-    // Reset position when opportunity changes
     useEffect(() => {
       x.set(0);
     }, [opportunity.id, x]);
+
+    useEffect(() => {
+      let timeout: NodeJS.Timeout;
+      if (showMuteIndicator) {
+        timeout = setTimeout(() => {
+          setShowMuteIndicator(false);
+        }, 2000);
+      }
+      return () => clearTimeout(timeout);
+    }, [showMuteIndicator]);
+
+    useEffect(() => {
+      if (!videoRef.current) return;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            videoRef.current.muted = isMuted;
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                console.error('Video playback failed:', error);
+                setIsMuted(true);
+                videoRef.current.muted = true;
+                videoRef.current.play().catch(err => {
+                  console.error('Video playback failed even when muted:', err);
+                });
+              });
+            }
+          } else {
+            videoRef.current.pause();
+          }
+        },
+        { threshold: 0.5 } // Play when at least 50% of the video is visible
+      );
+
+      observer.observe(videoRef.current);
+
+      return () => {
+        observer.disconnect();
+      };
+    }, [opportunity.id, isMuted]);
 
     const handleButtonAction = async (action: 'like' | 'dislike') => {
       try {
@@ -94,7 +134,15 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
       }
     };
 
-    // Determine media type based on file extension
+    const handleVideoClick = () => {
+      if (videoRef.current) {
+        const newMuteState = !isMuted;
+        videoRef.current.muted = newMuteState;
+        setIsMuted(newMuteState);
+        setShowMuteIndicator(true);
+      }
+    };
+
     const mediaContent = useMemo(() => {
       if (!opportunity.media_urls?.length) {
         return (
@@ -109,16 +157,37 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
 
       if (isVideo) {
         return (
-          <video 
-            autoPlay 
-            loop 
-            muted 
-            playsInline 
-            className="w-full h-full object-cover"
-          >
-            <source src={firstMediaUrl} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+          <div className="relative w-full h-full">
+            <video 
+              ref={videoRef}
+              loop 
+              muted={isMuted}
+              playsInline 
+              className="w-full h-full object-cover"
+              onClick={handleVideoClick}
+            >
+              <source src={firstMediaUrl} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+            <motion.div
+              className="absolute top-4 right-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: showMuteIndicator ? 1 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <button
+                onClick={handleVideoClick}
+                className="p-2 bg-black/70 rounded-full hover:bg-black/90 transition-colors duration-200"
+                aria-label={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? (
+                  <VolumeX className="w-5 h-5 text-white" />
+                ) : (
+                  <Volume2 className="w-5 h-5 text-white" />
+                )}
+              </button>
+            </motion.div>
+          </div>
         );
       } else {
         return (
@@ -131,7 +200,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
           />
         );
       }
-    }, [opportunity.media_urls, opportunity.title]);
+    }, [opportunity.media_urls, opportunity.title, isMuted, showMuteIndicator]);
 
     return (
       <motion.div
@@ -182,10 +251,7 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
           }
         }}
       >
-        {/* Media Section */}
         {mediaContent}
-
-        {/* Like/Dislike Overlay */}
         <motion.div
           style={{ 
             opacity: likeOpacity,
@@ -208,22 +274,13 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
             DISLIKE
           </div>
         </motion.div>
-
-        {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
-
-        {/* Content Section */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
-          {/* Title */}
           <h2 className="text-xl sm:text-2xl font-bold mb-2">{opportunity.title}</h2>
-
-          {/* Location */}
           <div className="flex items-center mb-3 text-sm sm:text-base">
             <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
             <span>{opportunity.location}</span>
           </div>
-
-          {/* Date & Budget Grid */}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
             {opportunity.start_date && (
               <div className="flex items-center">
@@ -256,8 +313,6 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
               </div>
             )}
           </div>
-
-          {/* Badges */}
           <div className="flex flex-wrap gap-2 mb-4">
             {opportunity.calendly_link && (
               <div className="flex items-center text-sm sm:text-base bg-blue-600/50 px-2 py-1 rounded-lg">
@@ -272,8 +327,6 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
               </div>
             )}
           </div>
-
-          {/* Description */}
           <div className="text-sm sm:text-base mb-4">
             {opportunity.description && opportunity.description.length > 100 && !showFullDescription ? (
               <>
@@ -300,8 +353,6 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
             )}
           </div>
         </div>
-
-        {/* Action Buttons */}
         <div className="absolute top-1/2 right-4 sm:right-6 transform -translate-y-1/2 flex flex-col gap-2">
           <button
             onClick={() => handleButtonAction('like')}
@@ -323,7 +374,6 @@ const OpportunityCard: React.FC<OpportunityCardProps> = memo(
   }
 );
 
-// Add display name for easier debugging
 OpportunityCard.displayName = 'OpportunityCard';
 
 export default OpportunityCard;
